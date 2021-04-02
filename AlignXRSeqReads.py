@@ -3,7 +3,8 @@ from mutperiodpy.Tkinter_scripts.TkinterDialog import TkinterDialog
 from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirectory
 
 # For each of the given reads files, run the accompyaning bash script to perform the alignment.
-def alignXRSeqReads(rawReadsFilePaths, adapterSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath, readCountsOutputFilePath = None):
+def alignXRSeqReads(rawReadsFilePaths, adapterSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath, 
+                    readCountsOutputFilePath = None, bowtie2BinaryPath = None):
     
     readCounts = dict()
     totalReadsFiles = len(rawReadsFilePaths)
@@ -17,8 +18,9 @@ def alignXRSeqReads(rawReadsFilePaths, adapterSequencesFilePath, bowtie2IndexBas
         print("(",currentReadFileNum,'/',totalReadsFiles,')', sep = '') 
 
         # Run the alignment script.
-        subprocess.run(("bash", alignmentBashScriptFilePath, rawReadsFilePath, adapterSequencesFilePath, bowtie2IndexBasenamePath), 
-                       check = True)
+        arguments = ["bash", alignmentBashScriptFilePath, rawReadsFilePath, adapterSequencesFilePath, bowtie2IndexBasenamePath]
+        if bowtie2BinaryPath is not None: arguments.append(bowtie2BinaryPath)
+        subprocess.run(arguments, check = True)
 
         # If requested, count the number of reads in the original input file.
         if readCountsOutputFilePath is not None:
@@ -43,7 +45,14 @@ def main():
                                       ("Gzipped fastq Files", ".fastq.gz"))
     dialog.createFileSelector("Adapter Sequences:", 1, ("Fasta Files", ".fa"))
     dialog.createFileSelector("Bowtie2 Index File (Any):", 2, ("Bowtie2 Index File", ".bt2"))
-    readCountsDS = dialog.createDynamicSelector(3, 0)
+
+    bowtie2BinaryDS = dialog.createDynamicSelector(3, 0)
+    bowtie2BinaryDS.initCheckboxController("Choose alternative bowtie2 binary")
+    bowtie2BinarySelector = bowtie2BinaryDS.initDisplay(True, selectionsID = "bowtieBinary")
+    bowtie2BinarySelector.createFileSelector("bowtie2 binary:", 0, ("Any File", "*"))
+    bowtie2BinaryDS.initDisplayState()
+    
+    readCountsDS = dialog.createDynamicSelector(4, 0)
     readCountsDS.initCheckboxController("Record initial read counts")
     readCountsSelector = readCountsDS.initDisplay(True, selectionsID = "readCounts")
     readCountsSelector.createFileSelector("Save read counts at:", 0, ("Text File", ".txt"), newFile = True)
@@ -70,10 +79,14 @@ def main():
         readCountsOutputFilePath = dialog.selections.getIndividualFilePaths("readCounts")[0]
     else: readCountsOutputFilePath = None
 
+    if bowtie2BinaryDS.getControllerVar():
+        bowtie2BinaryPath = dialog.selections.getIndividualFilePaths("bowtieBinary")[0]
+    else: bowtie2BinaryPath = None
 
     alignmentBashScriptFilePath = os.path.join(os.path.dirname(__file__),"ParseRawReadsToBed.bash")
 
-    alignXRSeqReads(filteredRawReadsFilePaths, adapterSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath, readCountsOutputFilePath)
+    alignXRSeqReads(filteredRawReadsFilePaths, adapterSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath, 
+                    readCountsOutputFilePath, bowtie2BinaryPath)
 
 
 if __name__ == "__main__": main()

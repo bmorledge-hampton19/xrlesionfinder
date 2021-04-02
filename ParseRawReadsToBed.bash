@@ -11,31 +11,41 @@ trimmomaticPath=$(dpkg -L trimmomatic | grep .jar$ | head -1)
 dataDirectory=${1%/*}
 
 echo
+inputData=$1; shift
+adaptorFile=$1; shift
+bt2IndexBasename=$1; shift
+
+if [[ $# > 0 ]]
+then
+    bowtieBinary=$1
+else
+    bowtieBinary="bowtie2"
+fi    
 
 # Determine if the input is sra or gzipped fastq.
-if [[ $1 == *\.sr ]]
+if [[ $inputData == *\.sr ]]
 then
     # If given an sra file, generate the rawFastq file from it.
     echo "sra format given."
-    dataName=${1%.sr}
+    dataName=${inputData%.sr}
     rawFastq="$dataName.sr.fastq.gz"
     echo "Converting to fastq format..."
-    fastq-dump --gzip -O $dataDirectory $1
+    fastq-dump --gzip -O $dataDirectory $inputData
 
-elif [[ $1 == *\.fastq\.gz ]]
+elif [[ $inputData == *\.fastq\.gz ]]
 then
     # If given a gzipped fastq file, set the dataName and rawFastq variables accordingly.
     echo "gzipped fastq given."
-    dataName=${1%.fastq.gz}
-    rawFastq=$1
+    dataName=${inputData%.fastq.gz}
+    rawFastq=$inputData
 
 else
-    echo "Error: given file: $1 is not an sra file or a gzipped fastq file."
+    echo "Error: given file: $inputData is not an sra file or a gzipped fastq file."
     exit 1
 
 fi
 
-echo "Working with $1"
+echo "Working with $inputData"
 
 # Create the names of all other intermediate and output files.
 trimmedFastq="${dataName}_trimmed.fastq.gz"
@@ -45,11 +55,11 @@ finalBedOutput="$dataName.bed"
 
 # Trim the data (Single End)
 echo "Trimming adaptors..."
-java -jar $trimmomaticPath SE $rawFastq $trimmedFastq "ILLUMINACLIP:$2:2:30:10"
+java -jar $trimmomaticPath SE $rawFastq $trimmedFastq "ILLUMINACLIP:$adaptorFile:2:30:10"
 
 # Align the reads to the genome.
 echo "Aligning reads with bowtie2..."
-bowtie2 -x $3 -U $trimmedFastq -S $bowtieSAMOutput
+$bowtieBinary -x $bt2IndexBasename -U $trimmedFastq -S $bowtieSAMOutput
 
 # Convert from sam to bam.
 echo "Converting from sam to bam..."
