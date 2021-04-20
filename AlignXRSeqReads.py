@@ -2,6 +2,20 @@ import os, subprocess
 from mutperiodpy.Tkinter_scripts.TkinterDialog import TkinterDialog
 from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirectory
 
+
+# Write metadata on the parameters for the alignment, for future reference.
+def writeMetadata(rawReadsFilePath, adapterSeqeuncesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath):
+
+    metadataFilePath = os.path.join(os.path.dirname(rawReadsFilePath),".metadata")
+    with open(metadataFilePath, 'w') as metadataFile:
+
+        bowtie2Version = subprocess.check_output(("bowtie2","--version"), encoding=("utf-8"))
+
+        metadataFile.write("Path_to_Index:\n" + bowtie2IndexBasenamePath + "\n\n")
+        metadataFile.write("Path_to_Adapter_Sequences:\n" + adapterSeqeuncesFilePath + "\n\n")
+        metadataFile.write("Bowtie2_Version: " + bowtie2Version + "\n\n")
+
+
 # For each of the given reads files, run the accompyaning bash script to perform the alignment.
 def alignXRSeqReads(rawReadsFilePaths, adapterSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath, 
                     readCountsOutputFilePath = None, bowtie2BinaryPath = None):
@@ -15,7 +29,7 @@ def alignXRSeqReads(rawReadsFilePaths, adapterSequencesFilePath, bowtie2IndexBas
         currentReadFileNum += 1
         print()
         print("Processing file",os.path.basename(rawReadsFilePath))
-        print("(",currentReadFileNum,'/',totalReadsFiles,')', sep = '') 
+        print('(',currentReadFileNum,'/',totalReadsFiles,')', sep = '') 
 
         # Run the alignment script.
         arguments = ["bash", alignmentBashScriptFilePath, rawReadsFilePath, adapterSequencesFilePath, bowtie2IndexBasenamePath]
@@ -30,6 +44,9 @@ def alignXRSeqReads(rawReadsFilePaths, adapterSequencesFilePath, bowtie2IndexBas
             readCountProcess = subprocess.Popen(("wc", "-l"), stdin = zcatProcess.stdout, stdout = subprocess.PIPE)
             readCount = readCountProcess.communicate()[0].decode("utf8")
             readCounts[os.path.basename(rawReadsFilePath)] = str( (int(readCount)-1)/4 )
+
+        # Write the metadata.
+        writeMetadata(rawReadsFilePath, adapterSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath)
 
     # Write the read counts if requested.
     if readCountsOutputFilePath is not None:
