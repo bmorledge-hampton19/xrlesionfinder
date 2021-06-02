@@ -4,7 +4,7 @@ from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirector
 
 
 # Write metadata on the parameters for the alignment, for future reference.
-def writeMetadata(rawReadsFilePath, adapterSeqeuncesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath):
+def writeMetadata(rawReadsFilePath, adapterSeqeuncesFilePath, bowtie2IndexBasenamePath):
 
     metadataFilePath = os.path.join(os.path.dirname(rawReadsFilePath),".metadata")
     with open(metadataFilePath, 'w') as metadataFile:
@@ -46,7 +46,7 @@ def alignXRSeqReads(rawReadsFilePaths, adapterSequencesFilePath, bowtie2IndexBas
             readCounts[os.path.basename(rawReadsFilePath)] = str( (int(readCount)-1)/4 )
 
         # Write the metadata.
-        writeMetadata(rawReadsFilePath, adapterSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath)
+        writeMetadata(rawReadsFilePath, adapterSequencesFilePath, bowtie2IndexBasenamePath)
 
     # Write the read counts if requested.
     if readCountsOutputFilePath is not None:

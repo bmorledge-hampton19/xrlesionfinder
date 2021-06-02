@@ -51,7 +51,7 @@ echo "Working with $inputData"
 trimmedFastq="${dataName}_trimmed.fastq.gz"
 bowtieSAMOutput="$dataName.sam"
 BAMOutput="$dataName.bam.gz"
-finalBedOutput="$dataName.bed"
+finalBedOutput="$(dirname $(dirname $dataName))/$(basename $dataName).bed"
 
 # Trim the data (Single End)
 echo "Trimming adaptors..."
@@ -67,7 +67,7 @@ samtools view -b -o $BAMOutput $bowtieSAMOutput
 
 # Gzip the sam file.  (Can't find a way to have bowtie do this to the output by default...)
 echo "Gzipping sam file..."
-gzip $bowtieSAMOutput
+gzip -f $bowtieSAMOutput
 
 # Convert to final bed output.
 echo "Converting to bed..."
