@@ -4,7 +4,7 @@ from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirector
 
 
 # Write metadata on the parameters for the alignment, for future reference.
-def writeMetadata(rawReadsFilePath, adapterSeqeuncesFilePath, bowtie2IndexBasenamePath):
+def writeMetadata(rawReadsFilePath, adaptorSeqeuncesFilePath, bowtie2IndexBasenamePath):
 
     metadataFilePath = os.path.join(os.path.dirname(rawReadsFilePath),".metadata")
     with open(metadataFilePath, 'w') as metadataFile:
@@ -12,12 +12,12 @@ def writeMetadata(rawReadsFilePath, adapterSeqeuncesFilePath, bowtie2IndexBasena
         bowtie2Version = subprocess.check_output(("bowtie2","--version"), encoding=("utf-8"))
 
         metadataFile.write("Path_to_Index:\n" + bowtie2IndexBasenamePath + "\n\n")
-        metadataFile.write("Path_to_Adapter_Sequences:\n" + adapterSeqeuncesFilePath + "\n\n")
+        metadataFile.write("Path_to_Adaptor_Sequences:\n" + adaptorSeqeuncesFilePath + "\n\n")
         metadataFile.write("Bowtie2_Version: " + bowtie2Version + "\n\n")
 
 
 # For each of the given reads files, run the accompyaning bash script to perform the alignment.
-def alignXRSeqReads(rawReadsFilePaths, adapterSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath, 
+def alignXRSeqReads(rawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath, 
                     readCountsOutputFilePath = None, bowtie2BinaryPath = None):
     
     readCounts = dict()
@@ -32,7 +32,7 @@ def alignXRSeqReads(rawReadsFilePaths, adapterSequencesFilePath, bowtie2IndexBas
         print('(',currentReadFileNum,'/',totalReadsFiles,')', sep = '') 
 
         # Run the alignment script.
-        arguments = ["bash", alignmentBashScriptFilePath, rawReadsFilePath, adapterSequencesFilePath, bowtie2IndexBasenamePath]
+        arguments = ["bash", alignmentBashScriptFilePath, rawReadsFilePath, adaptorSequencesFilePath, bowtie2IndexBasenamePath]
         if bowtie2BinaryPath is not None: arguments.append(bowtie2BinaryPath)
         subprocess.run(arguments, check = True)
 
@@ -46,7 +46,7 @@ def alignXRSeqReads(rawReadsFilePaths, adapterSequencesFilePath, bowtie2IndexBas
             readCounts[os.path.basename(rawReadsFilePath)] = str( (int(readCount)-1)/4 )
 
         # Write the metadata.
-        writeMetadata(rawReadsFilePath, adapterSequencesFilePath, bowtie2IndexBasenamePath)
+        writeMetadata(rawReadsFilePath, adaptorSequencesFilePath, bowtie2IndexBasenamePath)
 
     # Write the read counts if requested.
     if readCountsOutputFilePath is not None:
@@ -60,8 +60,13 @@ def main():
     dialog = TkinterDialog(workingDirectory=getDataDirectory())
     dialog.createMultipleFileSelector("Raw fastq reads:", 0, ".fastq.gz", 
                                       ("Gzipped fastq Files", ".fastq.gz"))
-    dialog.createFileSelector("Adapter Sequences:", 1, ("Fasta Files", ".fa"))
-    dialog.createFileSelector("Bowtie2 Index File (Any):", 2, ("Bowtie2 Index File", ".bt2"))
+    dialog.createFileSelector("Bowtie2 Index File (Any):", 1, ("Bowtie2 Index File", ".bt2"))
+
+    adaptorSequencesDS = dialog.createDynamicSelector(2, 0)
+    adaptorSequencesDS.initCheckboxController("Specify adaptor sequences to trim")
+    adaptorSequencesSelector = adaptorSequencesDS.initDisplay(True, selectionsID = "adaptorSequences")
+    adaptorSequencesSelector.createFileSelector("Adaptor Sequences:", 0, ("Fasta Files", ".fa"))
+    adaptorSequencesDS.initDisplayState()
 
     bowtie2BinaryDS = dialog.createDynamicSelector(3, 0)
     bowtie2BinaryDS.initCheckboxController("Choose alternative bowtie2 binary")
@@ -86,11 +91,13 @@ def main():
         if not unfilteredRawReadsFilePath.endswith("trimmed.fastq.gz"):
             filteredRawReadsFilePaths.append(unfilteredRawReadsFilePath)
 
-    adapterSequencesFilePath = dialog.selections.getIndividualFilePaths()[0]
-
-    bowtie2IndexBasenamePath: str = dialog.selections.getIndividualFilePaths()[1]
+    bowtie2IndexBasenamePath: str = dialog.selections.getIndividualFilePaths()[0]
     bowtie2IndexBasenamePath = bowtie2IndexBasenamePath.rsplit('.', 2)[0]
     if bowtie2IndexBasenamePath.endswith(".rev"): bowtie2IndexBasenamePath = bowtie2IndexBasenamePath.rsplit('.', 1)[0]
+
+    if adaptorSequencesDS.getControllerVar():
+        adaptorSequencesFilePath = dialog.selections.getIndividualFilePaths("adaptorSequences")[0]
+    else: adaptorSequencesFilePath = "NONE"
 
     if readCountsDS.getControllerVar():
         readCountsOutputFilePath = dialog.selections.getIndividualFilePaths("readCounts")[0]
@@ -102,7 +109,7 @@ def main():
 
     alignmentBashScriptFilePath = os.path.join(os.path.dirname(__file__),"ParseRawReadsToBed.bash")
 
-    alignXRSeqReads(filteredRawReadsFilePaths, adapterSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath, 
+    alignXRSeqReads(filteredRawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath, 
                     readCountsOutputFilePath, bowtie2BinaryPath)
 
 

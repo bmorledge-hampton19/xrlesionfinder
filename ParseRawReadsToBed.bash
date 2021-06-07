@@ -54,8 +54,14 @@ BAMOutput="$dataName.bam.gz"
 finalBedOutput="$(dirname $(dirname $dataName))/$(basename $dataName).bed"
 
 # Trim the data (Single End)
-echo "Trimming adaptors..."
-java -jar $trimmomaticPath SE $rawFastq $trimmedFastq "ILLUMINACLIP:$adaptorFile:2:30:10"
+if [[ $adaptorFile != "NONE" ]]
+then
+    echo "Trimming adaptors..."
+    java -jar $trimmomaticPath SE $rawFastq $trimmedFastq "ILLUMINACLIP:$adaptorFile:2:30:10"
+else
+    echo "Skipping adaptor trimming."
+    trimmedFastq=$rawFastq
+fi
 
 # Align the reads to the genome.
 echo "Aligning reads with bowtie2..."
