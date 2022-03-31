@@ -1,15 +1,16 @@
 import os, subprocess
-from mutperiodpy.Tkinter_scripts.TkinterDialog import TkinterDialog
+from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
 from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirectory
 
 
 # Write metadata on the parameters for the alignment, for future reference.
-def writeMetadata(rawReadsFilePath, adaptorSeqeuncesFilePath, bowtie2IndexBasenamePath):
+def writeMetadata(rawReadsFilePath, adaptorSeqeuncesFilePath, bowtie2IndexBasenamePath, bowtie2Version = None):
 
     metadataFilePath = os.path.join(os.path.dirname(rawReadsFilePath),".metadata")
     with open(metadataFilePath, 'w') as metadataFile:
 
-        bowtie2Version = subprocess.check_output(("bowtie2","--version"), encoding=("utf-8"))
+        if bowtie2Version is None:
+            bowtie2Version = subprocess.check_output(("bowtie2","--version"), encoding=("utf-8"))
 
         metadataFile.write("Path_to_Index:\n" + bowtie2IndexBasenamePath + "\n\n")
         metadataFile.write("Path_to_Adaptor_Sequences:\n" + adaptorSeqeuncesFilePath + "\n\n")
@@ -46,7 +47,7 @@ def alignXRSeqReads(rawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBas
             readCounts[os.path.basename(rawReadsFilePath)] = str( (int(readCount)-1)/4 )
 
         # Write the metadata.
-        writeMetadata(rawReadsFilePath, adaptorSequencesFilePath, bowtie2IndexBasenamePath)
+        writeMetadata(rawReadsFilePath, adaptorSequencesFilePath, bowtie2IndexBasenamePath, bowtie2BinaryPath)
 
     # Write the read counts if requested.
     if readCountsOutputFilePath is not None:
