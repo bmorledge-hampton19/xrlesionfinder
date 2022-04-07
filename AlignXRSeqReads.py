@@ -1,4 +1,4 @@
-import os, subprocess
+import os, subprocess, time
 from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
 from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirectory
 
@@ -22,12 +22,14 @@ def alignXRSeqReads(rawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBas
                     readCountsOutputFilePath = None, bowtie2BinaryPath = None, customBowtieArguments = ''):
     
     readCounts = dict()
+    scriptStartTime = time.time()
     totalReadsFiles = len(rawReadsFilePaths)
     currentReadFileNum = 0
     for rawReadsFilePath in rawReadsFilePaths:
 
         # Print information about the current file
         currentReadFileNum += 1
+        readsFileStartTime = time.time()
         print()
         print("Processing file",os.path.basename(rawReadsFilePath))
         print('(',currentReadFileNum,'/',totalReadsFiles,')', sep = '') 
@@ -46,6 +48,10 @@ def alignXRSeqReads(rawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBas
             readCountProcess = subprocess.Popen(("wc", "-l"), stdin = zcatProcess.stdout, stdout = subprocess.PIPE)
             readCount = readCountProcess.communicate()[0].decode("utf8")
             readCounts[os.path.basename(rawReadsFilePath)] = str( (int(readCount)-1)/4 )
+
+        # Output information on time elapsed.
+        print(f"Time taken to align reads in this file: {time.time() - readsFileStartTime} seconds")
+        print(f"Total time spent aligning across all files: {time.time() - scriptStartTime} seconds")
 
         # Write the metadata.
         writeMetadata(rawReadsFilePath, adaptorSequencesFilePath, bowtie2IndexBasenamePath, bowtie2BinaryPath)
