@@ -4,7 +4,8 @@ from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirector
 
 
 # Write metadata on the parameters for the alignment, for future reference.
-def writeMetadata(rawReadsFilePath, adaptorSeqeuncesFilePath, bowtie2IndexBasenamePath, bowtie2Version = None):
+def writeMetadata(rawReadsFilePath, adaptorSeqeuncesFilePath, bowtie2IndexBasenamePath, bowtie2Version = None,
+                  customBowtieArguments = None):
 
     metadataFilePath = os.path.join(os.path.dirname(rawReadsFilePath),".metadata")
     with open(metadataFilePath, 'w') as metadataFile:
@@ -15,6 +16,8 @@ def writeMetadata(rawReadsFilePath, adaptorSeqeuncesFilePath, bowtie2IndexBasena
         metadataFile.write("Path_to_Index:\n" + bowtie2IndexBasenamePath + "\n\n")
         metadataFile.write("Path_to_Adaptor_Sequences:\n" + adaptorSeqeuncesFilePath + "\n\n")
         metadataFile.write("Bowtie2_Version: " + bowtie2Version + "\n\n")
+        if customBowtieArguments is not None:
+            metadataFile.write(f"Custom_Bowtie2_arguments: {customBowtieArguments}\n\n")
 
 
 # For each of the given reads files, run the accompyaning bash script to perform the alignment.
@@ -54,7 +57,8 @@ def alignXRSeqReads(rawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBas
         print(f"Total time spent aligning across all files: {time.time() - scriptStartTime} seconds")
 
         # Write the metadata.
-        writeMetadata(rawReadsFilePath, adaptorSequencesFilePath, bowtie2IndexBasenamePath, bowtie2BinaryPath)
+        writeMetadata(rawReadsFilePath, adaptorSequencesFilePath, bowtie2IndexBasenamePath, 
+                      bowtie2BinaryPath, customBowtieArguments)
 
     # Write the read counts if requested.
     if readCountsOutputFilePath is not None:
