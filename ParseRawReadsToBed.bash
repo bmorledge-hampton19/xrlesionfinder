@@ -2,7 +2,7 @@
 # This script takes an sra file as input and runs the file through the SRA toolkit, trimmomatic, 
 # bowtie, samtools, and bedtools to create a bed file.
 # The first argument should be the input sra or gzipped fastq data, the second input should be the path to the fasta file of sequences for trimmomatic,
-#   and the third argument should be the path to the basename for the bowtie2 index files.  (e.g. for files basename.1.bt2 in dir, give: dir/basename)
+# and the third argument should be the path to the basename for the bowtie2 index files.  (e.g. for files basename.1.bt2 in dir, give: dir/basename)
 
 # Get trimmomatic's jar path.
 trimmomaticPath=$(dpkg -L trimmomatic | grep .jar$ | head -1)
@@ -14,6 +14,7 @@ echo
 inputData=$1; shift
 adaptorFile=$1; shift
 bt2IndexBasename=$1; shift
+customBowtieArguments = $1; shift
 
 if [[ $# > 0 ]]
 then
@@ -65,7 +66,12 @@ fi
 
 # Align the reads to the genome.
 echo "Aligning reads with bowtie2..."
-$bowtieBinary -x $bt2IndexBasename -U $trimmedFastq -S $bowtieSAMOutput
+if [[ -z "$customBowtieArguments" ]]
+then
+    $bowtieBinary -x $bt2IndexBasename -U $trimmedFastq -S $bowtieSAMOutput
+else
+    $bowtieBinary -x $bt2IndexBasename -U $trimmedFastq -S $bowtieSAMOutput $customBowtieArguments
+fi
 
 # Convert from sam to bam.
 echo "Converting from sam to bam..."

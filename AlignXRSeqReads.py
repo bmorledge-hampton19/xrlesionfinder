@@ -19,7 +19,7 @@ def writeMetadata(rawReadsFilePath, adaptorSeqeuncesFilePath, bowtie2IndexBasena
 
 # For each of the given reads files, run the accompyaning bash script to perform the alignment.
 def alignXRSeqReads(rawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath, 
-                    readCountsOutputFilePath = None, bowtie2BinaryPath = None):
+                    readCountsOutputFilePath = None, bowtie2BinaryPath = None, customBowtieArguments = ''):
     
     readCounts = dict()
     totalReadsFiles = len(rawReadsFilePaths)
@@ -33,7 +33,8 @@ def alignXRSeqReads(rawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBas
         print('(',currentReadFileNum,'/',totalReadsFiles,')', sep = '') 
 
         # Run the alignment script.
-        arguments = ["bash", alignmentBashScriptFilePath, rawReadsFilePath, adaptorSequencesFilePath, bowtie2IndexBasenamePath]
+        arguments = ["bash", alignmentBashScriptFilePath, rawReadsFilePath, adaptorSequencesFilePath, 
+                     bowtie2IndexBasenamePath, customBowtieArguments]
         if bowtie2BinaryPath is not None: arguments.append(bowtie2BinaryPath)
         subprocess.run(arguments, check = True)
 
@@ -81,6 +82,8 @@ def main():
     readCountsSelector.createFileSelector("Save read counts at:", 0, ("Text File", ".txt"), newFile = True)
     readCountsDS.initDisplayState()
 
+    dialog.createTextField("Custom bowtie Arguments:", 5, 0, defaultText = '')
+
     dialog.mainloop()
 
     if dialog.selections is None: quit()
@@ -110,8 +113,10 @@ def main():
 
     alignmentBashScriptFilePath = os.path.join(os.path.dirname(__file__),"ParseRawReadsToBed.bash")
 
+    customBowtieArguments = dialog.selections.getTextEntries()[0]
+
     alignXRSeqReads(filteredRawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath, 
-                    readCountsOutputFilePath, bowtie2BinaryPath)
+                    readCountsOutputFilePath, bowtie2BinaryPath, customBowtieArguments)
 
 
 if __name__ == "__main__": main()
