@@ -14,7 +14,7 @@ echo
 inputData=$1; shift
 adaptorFile=$1; shift
 bt2IndexBasename=$1; shift
-customBowtieArguments = $1; shift
+customBowtieArguments=$1; shift
 
 if [[ $# > 0 ]]
 then
