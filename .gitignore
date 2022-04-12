@@ -113,10 +113,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Bowtie2 alternate version and associated tests
-bowtie2-2.1.0/
+# Bowtie2 alternate versions
+bowtie2*/
 2.1_test/
 
 # Misc. testing files
-*test.py
-*test.R
+test*
