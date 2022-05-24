@@ -1,9 +1,11 @@
 import os
 from enum import Enum
 from typing import Dict, List
-from mutperiodpy.Tkinter_scripts.TkinterDialog import TkinterDialog
+from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
 from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirectory
-from mutperiodpy.helper_scripts.UsefulBioinformaticsFunctions import FastaFileIterator
+from benbiohelpers.FileSystemHandling.FastaFileIterator import FastaFileIterator
+from benbiohelpers.FileSystemHandling.DirectoryHandling import checkDirs, getIsolatedParentDir
+from benbiohelpers.FileSystemHandling.BedToFasta import bedToFasta
 
 
 class BaseFrequencyTable:
@@ -135,22 +137,43 @@ def getReadSequencesByLength(fastaFilePath, readSizeRange):
 
 
 # Given one or more fasta files and the features to count, find which indices are enriched from the end of the sequences, by length.
-def findEnrichedIndices(fastaFilePaths, countIndividualBases, countDipys, getSecondPlace):
+def findEnrichedIndices(bedFilePaths: List[str], genomeFastaFilePath, fastaFilePaths: List[str],
+                        countIndividualBases, countDipys, getSecondPlace):
 
     # Set some default parameters (I may change this to be more malleable at some point.)
     readSizeRange = range(11,41)
     fromStartValues = range(0) # These should be 1-based!  (0 can't be used because fromStart and fromEnd values are differentiated by +/-)
     fromEndValues = range(1,11)
 
+    # First, convert any bed file paths to fasta format.
+    print("Converting bed files to fasta format...")
+    newFastaFilePaths = list()
+    for bedFilePath in bedFilePaths:
+
+        print(f"Converting {os.path.basename(bedFilePath)}...")
+        intermediateDir = os.path.join(os.path.dirname(bedFilePath),"intermediate_files")
+        checkDirs(intermediateDir)
+        fastaBasename = os.path.basename(bedFilePath).rsplit('.',1)[0] + ".fa"
+        fastaOutputFilePath = os.path.join(intermediateDir,fastaBasename)
+        newFastaFilePaths.append(fastaOutputFilePath)
+
+        bedToFasta(bedFilePath, genomeFastaFilePath, fastaOutputFilePath)
+    
+    # Add any new fasta file paths to the current list and then use them to search for enriched indices.
+    fastaFilePaths += newFastaFilePaths
     for fastaFilePath in fastaFilePaths:
 
         print()
         print("Working with:",os.path.basename(fastaFilePath))
 
         # Generate a file path for the output file.
-        enrichedIndicesOutputFilePath = fastaFilePath.rsplit('.',1)[0] + "_enriched_indices.tsv"
+        if getIsolatedParentDir(fastaFilePath) == "intermediate_files":
+            outputDir = os.path.dirname(os.path.dirname(fastaFilePath))
+        else: outputDir = os.path.dirname(fastaFilePath)
+        outputBasename = os.path.basename(fastaFilePath).rsplit('.',1)[0] + "_enriched_indices.tsv"
+        enrichedIndicesOutputFilePath = os.path.join(outputDir,outputBasename)
 
-        # First, get a dictionary of sequences with lengths within readSizeRange
+        # Get a dictionary of sequences with lengths within readSizeRange
         print("Reading in sequences and binning by length...")
         sequencesByLength = getReadSequencesByLength(fastaFilePath, readSizeRange)
 
@@ -208,25 +231,28 @@ def findEnrichedIndices(fastaFilePaths, countIndividualBases, countDipys, getSec
 def main():
 
     # Create a simple dialog for selecting the fasta files and the nucleotide feature(s) to count.
-    dialog = TkinterDialog(workingDirectory=getDataDirectory())
-    dialog.createMultipleFileSelector("Fasta file of aligned data:", 0, ".fa", 
-                                      ("Fasta Files", ".fa"))
-    dialog.createCheckbox("Count individual bases:", 1, 0)
-    dialog.createCheckbox("Count dipys.", 1, 1)
-    dialog.createCheckbox("Record second-most enriched positions.", 2, 0)
-
-    dialog.mainloop()
-
-    if dialog.selections is None: quit()
+    with TkinterDialog(workingDirectory=getDataDirectory()) as dialog:
+        dialog.createMultipleFileSelector("Bed files of aligned data:", 0, "aligned_reads.bed", 
+                                          ("Bed Files", ".bed"))
+        dialog.createFileSelector("Genome fasta file (If bed files are provided)", 1,
+                                  ("Fasta File", ".fa"))
+        dialog.createMultipleFileSelector("Fasta files of aligned data:", 2, "aligned_reads.fa", 
+                                          ("Fasta Files", ".fa"))
+        dialog.createCheckbox("Count individual bases", 3, 0)
+        dialog.createCheckbox("Count dipys", 3, 1)
+        dialog.createCheckbox("Record second-most enriched positions", 4, 0)
 
     # Get the input for the findEnrichedIndices function
-    fastaFilePaths = dialog.selections.getFilePathGroups()[0]
+    bedFilePaths = dialog.selections.getFilePathGroups()[0]
+    genomeFastaFilePath = dialog.selections.getIndividualFilePaths()[0]
+    fastaFilePaths = dialog.selections.getFilePathGroups()[1]
 
     countIndividualBases = dialog.selections.getToggleStates()[0]
     countDipys = dialog.selections.getToggleStates()[1]
     getSecondPlace = dialog.selections.getToggleStates()[2]
 
-    findEnrichedIndices(fastaFilePaths, countIndividualBases, countDipys, getSecondPlace)
+    findEnrichedIndices(bedFilePaths, genomeFastaFilePath, fastaFilePaths,
+                        countIndividualBases, countDipys, getSecondPlace)
 
 
 if __name__ == "__main__": main()
