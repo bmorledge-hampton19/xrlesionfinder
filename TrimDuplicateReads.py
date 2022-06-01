@@ -1,5 +1,5 @@
 import subprocess
-from mutperiodpy.Tkinter_scripts.TkinterDialog import TkinterDialog
+from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
 from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirectory
 from typing import List
 import os, subprocess
@@ -45,13 +45,9 @@ def trimDuplicateReads(readsFilePaths: List[str]):
 def main():
 
     # Create a simple dialog for selecting the gene designation files.
-    dialog = TkinterDialog(workingDirectory=getDataDirectory())
-    dialog.createMultipleFileSelector("Bed formatted reads:", 0, ".bed", 
-                                      ("Bed Files", ".bed"))
-
-    dialog.mainloop()
-
-    if dialog.selections is None: quit()
+    with TkinterDialog(workingDirectory=getDataDirectory()) as dialog:
+        dialog.createMultipleFileSelector("Bed formatted reads:", 0, ".bed", 
+                                          ("Bed Files", ".bed"))
 
     trimDuplicateReads(dialog.selections.getFilePathGroups()[0])
 
