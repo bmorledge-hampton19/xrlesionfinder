@@ -1,4 +1,4 @@
-import os, subprocess, time
+import os, subprocess
 from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
 from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirectory
 
