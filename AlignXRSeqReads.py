@@ -5,7 +5,7 @@ from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirector
 
 # Write metadata on the parameters for the alignment, for future reference.
 def writeMetadata(rawReadsFilePath, adaptorSeqeuncesFilePath, bowtie2IndexBasenamePath, bowtie2Version = None,
-                  customBowtieArguments = None):
+                  customBowtie2Arguments = None):
 
     metadataFilePath = os.path.join(os.path.dirname(rawReadsFilePath),".metadata")
     with open(metadataFilePath, 'w') as metadataFile:
@@ -16,13 +16,13 @@ def writeMetadata(rawReadsFilePath, adaptorSeqeuncesFilePath, bowtie2IndexBasena
         metadataFile.write("Path_to_Index:\n" + bowtie2IndexBasenamePath + "\n\n")
         metadataFile.write("Path_to_Adaptor_Sequences:\n" + adaptorSeqeuncesFilePath + "\n\n")
         metadataFile.write("Bowtie2_Version: " + bowtie2Version + "\n\n")
-        if customBowtieArguments is not None:
-            metadataFile.write(f"Custom_Bowtie2_arguments: {customBowtieArguments}\n\n")
+        if customBowtie2Arguments is not None:
+            metadataFile.write(f"Custom_Bowtie2_arguments: {customBowtie2Arguments}\n\n")
 
 
 # For each of the given reads files, run the accompyaning bash script to perform the alignment.
 def alignXRSeqReads(rawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath, 
-                    readCountsOutputFilePath = None, bowtie2BinaryPath = None, customBowtieArguments = ''):
+                    readCountsOutputFilePath = None, bowtie2BinaryPath = None, customBowtie2Arguments = ''):
     
     readCounts = dict()
     scriptStartTime = time.time()
@@ -39,7 +39,7 @@ def alignXRSeqReads(rawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBas
 
         # Run the alignment script.
         arguments = ["bash", alignmentBashScriptFilePath, rawReadsFilePath, adaptorSequencesFilePath, 
-                     bowtie2IndexBasenamePath, customBowtieArguments]
+                     bowtie2IndexBasenamePath, customBowtie2Arguments]
         if bowtie2BinaryPath is not None: arguments.append(bowtie2BinaryPath)
         subprocess.run(arguments, check = True)
 
@@ -58,7 +58,7 @@ def alignXRSeqReads(rawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBas
 
         # Write the metadata.
         writeMetadata(rawReadsFilePath, adaptorSequencesFilePath, bowtie2IndexBasenamePath, 
-                      bowtie2BinaryPath, customBowtieArguments)
+                      bowtie2BinaryPath, customBowtie2Arguments)
 
     # Write the read counts if requested.
     if readCountsOutputFilePath is not None:
@@ -92,7 +92,14 @@ def main():
     readCountsSelector.createFileSelector("Save read counts at:", 0, ("Text File", ".txt"), newFile = True)
     readCountsDS.initDisplayState()
 
-    dialog.createTextField("Custom bowtie Arguments:", 5, 0, defaultText = '')
+    with dialog.createDynamicSelector(5, 0) as customArgsDS:
+        customArgsDS.initDropdownController("Custom Bowtie2 Arguments:", ("None", "From File", "Direct Input"))
+        customArgsDS.initDisplay("From File", selectionsID = "customArgs").createFileSelector(
+            "Custom Arguments File:", 0, ("Text File", ".txt")
+        )
+        customArgsDS.initDisplay("Direct Input", selectionsID = "customArgs").createTextField(
+            "Custom Arguments:", 0, 0, defaultText = ''
+        )
 
     dialog.mainloop()
 
@@ -123,10 +130,17 @@ def main():
 
     alignmentBashScriptFilePath = os.path.join(os.path.dirname(__file__),"ParseRawReadsToBed.bash")
 
-    customBowtieArguments = dialog.selections.getTextEntries()[0]
+    if customArgsDS.getControllerVar() == "None":
+        customBowtie2Arguments = ''
+    elif customArgsDS.getControllerVar() == "From File":
+        customBowtie2ArgsFilePath = dialog.selections.getIndividualFilePaths("customArgs")[0]
+        with open(customBowtie2ArgsFilePath, 'r') as customBowtie2ArgsFile:
+            customBowtie2Arguments = customBowtie2ArgsFile.readline().strip()
+    elif customArgsDS.getControllerVar() == "Direct Input":
+        customBowtie2Arguments = dialog.selections.getTextEntries("customArgs")[0]
 
     alignXRSeqReads(filteredRawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath, 
-                    readCountsOutputFilePath, bowtie2BinaryPath, customBowtieArguments)
+                    readCountsOutputFilePath, bowtie2BinaryPath, customBowtie2Arguments)
 
 
 if __name__ == "__main__": main()
