@@ -13,7 +13,8 @@ fastqFile=$1; shift
 adaptorFile=$1; shift
 
 # Ensure the input is a gzipped fastq file.
-if [[ $inputData == *\.fastq\.gz ]]
+if [[ $fastqFile == *\.fastq\.gz ]]
+then
     # If given a gzipped fastq file, set the dataName and rawFastq variables accordingly.
     dataName=${fastqFile%.fastq.gz}
 

@@ -1,15 +1,19 @@
 import os, subprocess
+from typing import List
 from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
 from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirectory
 
 
-# For each of the given reads files, run the accompyaning bash script to perform the alignment.
-def trimAdaptorSequences(fastqFilePaths, adaptorSequencesFilePath):
+# For each of the given reads files, run the accompanying bash script to perform the alignment.
+def trimAdaptorSequences(fastqFilePaths: List[str], adaptorSequencesFilePath):
     
-    trimmingBashScriptFilePath = os.path.join(os.path.dirname(__file__),"TrimAdaptor.bash")
+    trimmingBashScriptFilePath = os.path.join(os.path.dirname(__file__),"TrimAdaptorSequences.bash")
 
     for fastqFilePath in fastqFilePaths:
-        subprocess.run(("bash", trimmingBashScriptFilePath, fastqFilePath, adaptorSequencesFilePath), check = True)
+        if fastqFilePath.endswith("trimmed.fastq.gz"):
+            print(f"{os.path.basename(fastqFilePath)} appears to be already trimmed. Skipping.")
+            continue
+        else: subprocess.run(("bash", trimmingBashScriptFilePath, fastqFilePath, adaptorSequencesFilePath), check = True)
 
 
 def main():
