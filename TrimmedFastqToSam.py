@@ -2,7 +2,6 @@
 import os, subprocess, time
 from typing import List
 from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
-from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirectory
 
 
 # For each of the given reads files, run the accompyaning bash script to perform the alignment.
@@ -39,7 +38,14 @@ def trimmedFastqToSam(fastqFilePaths: List[str], bowtie2IndexBasenamePath, bowti
 
 def main():
 
-    with TkinterDialog(workingDirectory=getDataDirectory()) as dialog:
+    # Get the working directory from mutperiod if possible. Otherwise, just use this script's directory.
+    try:
+        from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirectory
+        workingDirectory = getDataDirectory()
+    except ImportError:
+        workingDirectory = os.path.dirname(__file__)
+
+    with TkinterDialog(workingDirectory = workingDirectory) as dialog:
         dialog.createMultipleFileSelector("Trimmed fastq reads:", 0, "trimmed.fastq.gz", 
                                           ("Gzipped fastq Files", ".fastq.gz"))
         dialog.createFileSelector("Bowtie2 Index File (Any):", 1, ("Bowtie2 Index File", ".bt2"))
