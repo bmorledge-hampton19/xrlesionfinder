@@ -1,6 +1,5 @@
 import os, subprocess, time
 from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
-from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirectory
 
 
 # Write metadata on the parameters for the alignment, for future reference.
@@ -68,8 +67,14 @@ def alignXRSeqReads(rawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBas
 
 def main():
 
+    try:
+        from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirectory
+        workingDirectory = getDataDirectory()
+    except ImportError:
+        workingDirectory = os.path.dirname(__file__)
+
     # Create a simple dialog for selecting the gene designation files.
-    dialog = TkinterDialog(workingDirectory=getDataDirectory())
+    dialog = TkinterDialog(workingDirectory=workingDirectory)
     dialog.createMultipleFileSelector("Raw fastq reads:", 0, ".fastq.gz", 
                                       ("Gzipped fastq Files", ".fastq.gz"))
     dialog.createFileSelector("Bowtie2 Index File (Any):", 1, ("Bowtie2 Index File", ".bt2"))
