@@ -5,6 +5,7 @@
 import os, subprocess, time, shutil
 from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
 from benbiohelpers.FileSystemHandling.DirectoryHandling import checkDirs
+from xrlesionfinder.ProjectManagement.UsefulFileSystemFunctions import getDataDirectory
 
 # Given a file path to a list of run accession IDs and an optional file path to their corresponding names,
 # uses sra-tools to retrieve the fastq sequences.
@@ -66,7 +67,7 @@ def sRA_ToFastq(runAccessionIDsFilePath, namesFilePath = None):
 def main():
 
     # Create the UI.
-    with TkinterDialog(workingDirectory = os.path.dirname(__file__)) as dialog:
+    with TkinterDialog(workingDirectory = getDataDirectory()) as dialog:
         dialog.createFileSelector("SRA run accession IDs:", 0, ("text file",".txt"))
         with dialog.createDynamicSelector(1, 0) as namesDynSel:
             namesDynSel.initCheckboxController("Specify Custom Names:")

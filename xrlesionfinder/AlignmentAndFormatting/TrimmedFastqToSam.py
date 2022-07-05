@@ -2,6 +2,7 @@
 import os, subprocess, time
 from typing import List
 from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
+from xrlesionfinder.ProjectManagement.UsefulFileSystemFunctions import getDataDirectory
 
 
 # For each of the given reads files, run the accompyaning bash script to perform the alignment.
@@ -38,23 +39,15 @@ def trimmedFastqToSam(fastqFilePaths: List[str], bowtie2IndexBasenamePath, bowti
 
 def main():
 
-    # Get the working directory from mutperiod if possible. Otherwise, just use this script's directory.
-    try:
-        from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirectory
-        workingDirectory = getDataDirectory()
-    except ImportError:
-        workingDirectory = os.path.dirname(__file__)
-
-    with TkinterDialog(workingDirectory = workingDirectory) as dialog:
+    with TkinterDialog(workingDirectory = getDataDirectory()) as dialog:
         dialog.createMultipleFileSelector("Trimmed fastq reads:", 0, "trimmed.fastq.gz", 
                                           ("Gzipped fastq Files", ".fastq.gz"))
         dialog.createFileSelector("Bowtie2 Index File (Any):", 1, ("Bowtie2 Index File", ".bt2"))
 
-        bowtie2BinaryDS = dialog.createDynamicSelector(2, 0)
-        bowtie2BinaryDS.initCheckboxController("Choose alternative bowtie2 binary")
-        bowtie2BinarySelector = bowtie2BinaryDS.initDisplay(True, selectionsID = "bowtieBinary")
-        bowtie2BinarySelector.createFileSelector("bowtie2 binary:", 0, ("Any File", "*"))
-        bowtie2BinaryDS.initDisplayState()
+        with dialog.createDynamicSelector(2, 0) as bowtie2BinaryDS:
+            bowtie2BinaryDS.initCheckboxController("Choose alternative bowtie2 binary")
+            bowtie2BinarySelector = bowtie2BinaryDS.initDisplay(True, selectionsID = "bowtieBinary")
+            bowtie2BinarySelector.createFileSelector("bowtie2 binary:", 0, ("Any File", "*"))
 
         dialog.createDropdown("Number of CPU threads to use:", 3, 0, ('1', '2', '3', '4'))
 

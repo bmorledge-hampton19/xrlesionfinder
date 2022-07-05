@@ -1,5 +1,6 @@
 import os, subprocess, time
 from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
+from xrlesionfinder.ProjectManagement.UsefulFileSystemFunctions import getDataDirectory
 
 
 # Write metadata on the parameters for the alignment, for future reference.
@@ -67,48 +68,35 @@ def alignXRSeqReads(rawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBas
 
 def main():
 
-    try:
-        from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirectory
-        workingDirectory = getDataDirectory()
-    except ImportError:
-        workingDirectory = os.path.dirname(__file__)
-
     # Create a simple dialog for selecting the gene designation files.
-    dialog = TkinterDialog(workingDirectory=workingDirectory)
-    dialog.createMultipleFileSelector("Raw fastq reads:", 0, ".fastq.gz", 
-                                      ("Gzipped fastq Files", ".fastq.gz"))
-    dialog.createFileSelector("Bowtie2 Index File (Any):", 1, ("Bowtie2 Index File", ".bt2"))
+    with TkinterDialog(workingDirectory=getDataDirectory()) as dialog:
+        dialog.createMultipleFileSelector("Raw fastq reads:", 0, ".fastq.gz", 
+                                        ("Gzipped fastq Files", ".fastq.gz"))
+        dialog.createFileSelector("Bowtie2 Index File (Any):", 1, ("Bowtie2 Index File", ".bt2"))
 
-    adaptorSequencesDS = dialog.createDynamicSelector(2, 0)
-    adaptorSequencesDS.initCheckboxController("Specify adaptor sequences to trim")
-    adaptorSequencesSelector = adaptorSequencesDS.initDisplay(True, selectionsID = "adaptorSequences")
-    adaptorSequencesSelector.createFileSelector("Adaptor Sequences:", 0, ("Fasta Files", ".fa"))
-    adaptorSequencesDS.initDisplayState()
+        with dialog.createDynamicSelector(2, 0) as adaptorSequencesDS:
+            adaptorSequencesDS.initDropdownController("Use default adapters for trimming", ("Default", "Custom", "None"))
+            adaptorSequencesSelector = adaptorSequencesDS.initDisplay("Custom", selectionsID = "adaptorSequences")
+            adaptorSequencesSelector.createFileSelector("Custom Adaptor Sequences File:", 0, ("Fasta Files", ".fa"))
 
-    bowtie2BinaryDS = dialog.createDynamicSelector(3, 0)
-    bowtie2BinaryDS.initCheckboxController("Choose alternative bowtie2 binary")
-    bowtie2BinarySelector = bowtie2BinaryDS.initDisplay(True, selectionsID = "bowtieBinary")
-    bowtie2BinarySelector.createFileSelector("bowtie2 binary:", 0, ("Any File", "*"))
-    bowtie2BinaryDS.initDisplayState()
-    
-    readCountsDS = dialog.createDynamicSelector(4, 0)
-    readCountsDS.initCheckboxController("Record initial read counts")
-    readCountsSelector = readCountsDS.initDisplay(True, selectionsID = "readCounts")
-    readCountsSelector.createFileSelector("Save read counts at:", 0, ("Text File", ".txt"), newFile = True)
-    readCountsDS.initDisplayState()
+        with dialog.createDynamicSelector(3, 0) as bowtie2BinaryDS:
+            bowtie2BinaryDS.initCheckboxController("Choose alternative bowtie2 binary")
+            bowtie2BinarySelector = bowtie2BinaryDS.initDisplay(True, selectionsID = "bowtieBinary")
+            bowtie2BinarySelector.createFileSelector("bowtie2 binary:", 0, ("Any File", "*"))
+        
+        with dialog.createDynamicSelector(4, 0) as readCountsDS:
+            readCountsDS.initCheckboxController("Record initial read counts")
+            readCountsSelector = readCountsDS.initDisplay(True, selectionsID = "readCounts")
+            readCountsSelector.createFileSelector("Save read counts at:", 0, ("Text File", ".txt"), newFile = True)
 
-    with dialog.createDynamicSelector(5, 0) as customArgsDS:
-        customArgsDS.initDropdownController("Custom Bowtie2 Arguments:", ("None", "From File", "Direct Input"))
-        customArgsDS.initDisplay("From File", selectionsID = "customArgs").createFileSelector(
-            "Custom Arguments File:", 0, ("Text File", ".txt")
-        )
-        customArgsDS.initDisplay("Direct Input", selectionsID = "customArgs").createTextField(
-            "Custom Arguments:", 0, 0, defaultText = ''
-        )
-
-    dialog.mainloop()
-
-    if dialog.selections is None: quit()
+        with dialog.createDynamicSelector(5, 0) as customArgsDS:
+            customArgsDS.initDropdownController("Custom Bowtie2 Arguments:", ("None", "From File", "Direct Input"))
+            customArgsDS.initDisplay("From File", selectionsID = "customArgs").createFileSelector(
+                "Custom Arguments File:", 0, ("Text File", ".txt")
+            )
+            customArgsDS.initDisplay("Direct Input", selectionsID = "customArgs").createTextField(
+                "Custom Arguments:", 0, 0, defaultText = ''
+            )
 
     # Get the raw reads files, but make sure that no trimmed reads files have tagged along!
     unfilteredRawReadsFilePaths = dialog.selections.getFilePathGroups()[0]
@@ -121,7 +109,9 @@ def main():
     bowtie2IndexBasenamePath = bowtie2IndexBasenamePath.rsplit('.', 2)[0]
     if bowtie2IndexBasenamePath.endswith(".rev"): bowtie2IndexBasenamePath = bowtie2IndexBasenamePath.rsplit('.', 1)[0]
 
-    if adaptorSequencesDS.getControllerVar():
+    if adaptorSequencesDS.getControllerVar() == "Default":
+        adaptorSequencesFilePath = os.path.join(os.path.dirname(__file__), "XR-seq_primers.fa")
+    elif adaptorSequencesDS.getControllerVar() == "Custom":
         adaptorSequencesFilePath = dialog.selections.getIndividualFilePaths("adaptorSequences")[0]
     else: adaptorSequencesFilePath = "NONE"
 

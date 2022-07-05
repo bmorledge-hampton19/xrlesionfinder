@@ -1,8 +1,7 @@
-import subprocess
-from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
-from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirectory
-from typing import List
 import os, subprocess
+from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
+from typing import List
+from xrlesionfinder.ProjectManagement.UsefulFileSystemFunctions import getDataDirectory
 
 # For each given file, create a new file where every read position is unique.  Reads with duplicate locations are trimmed down to the one read.
 def trimDuplicateReads(readsFilePaths: List[str]):

@@ -2,10 +2,10 @@ import os
 from enum import Enum
 from typing import Dict, List
 from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
-from mutperiodpy.helper_scripts.UsefulFileSystemFunctions import getDataDirectory
 from benbiohelpers.FileSystemHandling.FastaFileIterator import FastaFileIterator
 from benbiohelpers.FileSystemHandling.DirectoryHandling import checkDirs, getIsolatedParentDir
 from benbiohelpers.FileSystemHandling.BedToFasta import bedToFasta
+from xrlesionfinder.ProjectManagement.UsefulFileSystemFunctions import getDataDirectory
 
 
 class BaseFrequencyTable:
@@ -230,8 +230,7 @@ def findEnrichedIndices(bedFilePaths: List[str], genomeFastaFilePath, fastaFileP
 
 def main():
 
-    # Create a simple dialog for selecting the fasta files and the nucleotide feature(s) to count.
-    with TkinterDialog(workingDirectory=getDataDirectory()) as dialog:
+    with TkinterDialog(workingDirectory = getDataDirectory()) as dialog:
         dialog.createMultipleFileSelector("Bed files of aligned data:", 0, "aligned_reads.bed", 
                                           ("Bed Files", ".bed"))
         dialog.createFileSelector("Genome fasta file (If bed files are provided)", 1,
