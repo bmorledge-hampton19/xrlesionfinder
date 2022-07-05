@@ -119,3 +119,6 @@ bowtie2*/
 
 # Misc. testing files
 test*
+
+# xrlesionfinder data directory
+/xrlesionfinder_data
