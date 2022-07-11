@@ -23,7 +23,7 @@ def writeMetadata(rawReadsFilePath, adaptorSeqeuncesFilePath, bowtie2IndexBasena
 # For each of the given reads files, run the accompyaning bash script to perform the alignment.
 def alignXRSeqReads(rawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath, 
                     readCountsOutputFilePath = None, bowtie2BinaryPath = None, customBowtie2Arguments = ''):
-    
+
     readCounts = dict()
     scriptStartTime = time.time()
     totalReadsFiles = len(rawReadsFilePaths)
@@ -70,7 +70,7 @@ def main():
 
     # Create a simple dialog for selecting the gene designation files.
     with TkinterDialog(workingDirectory=getDataDirectory()) as dialog:
-        dialog.createMultipleFileSelector("Raw fastq reads:", 0, ".fastq.gz", 
+        dialog.createMultipleFileSelector("Raw fastq reads:", 0, ".fastq.gz",
                                         ("Gzipped fastq Files", ".fastq.gz"))
         dialog.createFileSelector("Bowtie2 Index File (Any):", 1, ("Bowtie2 Index File", ".bt2"))
 
@@ -83,7 +83,7 @@ def main():
             bowtie2BinaryDS.initCheckboxController("Choose alternative bowtie2 binary")
             bowtie2BinarySelector = bowtie2BinaryDS.initDisplay(True, selectionsID = "bowtieBinary")
             bowtie2BinarySelector.createFileSelector("bowtie2 binary:", 0, ("Any File", "*"))
-        
+
         with dialog.createDynamicSelector(4, 0) as readCountsDS:
             readCountsDS.initCheckboxController("Record initial read counts")
             readCountsSelector = readCountsDS.initDisplay(True, selectionsID = "readCounts")
