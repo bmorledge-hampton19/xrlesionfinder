@@ -66,6 +66,12 @@ def alignXRSeqReads(rawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBas
             for rawReadsFileBasename in readCounts:
                 readCountsOutputFile.write(rawReadsFileBasename + ": " + readCounts[rawReadsFileBasename] + '\n')
 
+
+def parseArgs(args):
+    pass
+    # TODO: Implement this
+
+
 def main():
 
     # Create a simple dialog for selecting the gene designation files.
