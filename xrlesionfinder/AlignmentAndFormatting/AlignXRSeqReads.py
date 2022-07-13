@@ -1,6 +1,7 @@
 import os, subprocess, time
 from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
 from xrlesionfinder.ProjectManagement.UsefulFileSystemFunctions import getDataDirectory
+from typing import List
 
 
 # Write metadata on the parameters for the alignment, for future reference.
@@ -67,6 +68,16 @@ def alignXRSeqReads(rawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBas
                 readCountsOutputFile.write(rawReadsFileBasename + ": " + readCounts[rawReadsFileBasename] + '\n')
 
 
+# Removes trimmed reads file paths from a list of fastq reads file paths.
+# Returns the filtered list of file paths. Does not alter the original list.
+def removeTrimmed(unfilteredReadsFilePaths: List[str]):
+    filteredReadsFilePaths = list()
+    for unfilteredReadsFilePath in unfilteredReadsFilePaths:
+        if not "trimmed.fastq" in unfilteredReadsFilePath:
+            filteredReadsFilePaths.append(unfilteredReadsFilePath)
+    return filteredReadsFilePaths
+
+
 def parseArgs(args):
     pass
     # TODO: Implement this
@@ -106,10 +117,7 @@ def main():
 
     # Get the raw reads files, but make sure that no trimmed reads files have tagged along!
     unfilteredRawReadsFilePaths = dialog.selections.getFilePathGroups()[0]
-    filteredRawReadsFilePaths = list()
-    for unfilteredRawReadsFilePath in unfilteredRawReadsFilePaths:
-        if not unfilteredRawReadsFilePath.endswith("trimmed.fastq.gz"):
-            filteredRawReadsFilePaths.append(unfilteredRawReadsFilePath)
+    filteredRawReadsFilePaths = removeTrimmed(unfilteredRawReadsFilePaths)
 
     bowtie2IndexBasenamePath: str = dialog.selections.getIndividualFilePaths()[0]
     bowtie2IndexBasenamePath = bowtie2IndexBasenamePath.rsplit('.', 2)[0]
