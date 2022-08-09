@@ -139,6 +139,7 @@ class XRLFMetadata(Metadata):
         # Ok, NOW we can search for the organism, lesion, timepoint, and repetition. 
         # If this search fails at any point, everything we have left just gets lumped into the ALT_ID metadata
         # feature and throw a warning. (We tried!)
+        potentialAltID = featuresString
         try:
 
             # First, search for the timepoint since it should actually have a somewhat regular pattern. (ends with 
@@ -182,3 +183,4 @@ class XRLFMetadata(Metadata):
 
         except MetadataAutoGenerationError as error:
             print(f"Unable to fully disambiguate metadata from given string: {error}\n Assigning remaining string to alt ID.")
+            self[XRLFMFID.ALT_ID] = potentialAltID
