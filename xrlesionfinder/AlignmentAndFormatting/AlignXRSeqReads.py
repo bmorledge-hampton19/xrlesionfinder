@@ -85,10 +85,11 @@ def parseArgs(args):
 
 def main():
 
-    # Create a simple dialog for selecting the gene designation files.
+    # Create a simple dialog for selecting the relevant files.
     with TkinterDialog(workingDirectory=getDataDirectory()) as dialog:
         dialog.createMultipleFileSelector("Raw fastq reads:", 0, ".fastq.gz",
-                                        ("Gzipped fastq Files", ".fastq.gz"))
+                                        ("Gzipped fastq Files", ".fastq.gz"), ("fastq Files", ".fastq"),
+                                        additionalFileEndings=[".fastq"])
         dialog.createFileSelector("Bowtie2 Index File (Any):", 1, ("Bowtie2 Index File", ".bt2"))
 
         with dialog.createDynamicSelector(2, 0) as adaptorSequencesDS:

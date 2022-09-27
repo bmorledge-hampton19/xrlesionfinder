@@ -23,7 +23,7 @@ else
     bowtieBinary="bowtie2"
 fi    
 
-# Determine if the input is sra or gzipped fastq.
+# Determine if the input is sra, fastq, or gzipped fastq.
 if [[ $inputData == *\.sr ]]
 then
     # If given an sra file, generate the rawFastq file from it.
@@ -33,6 +33,13 @@ then
     echo "Converting to fastq format..."
     fastq-dump --gzip -O $dataDirectory $inputData
 
+elif [[ $inputData == *\.fastq ]]
+then
+    # If given a fastq file, set the dataName and rawFastq variables accordingly.
+    echo "fastq given."
+    dataName=${inputData%.fastq}
+    rawFastq=$inputData
+
 elif [[ $inputData == *\.fastq\.gz ]]
 then
     # If given a gzipped fastq file, set the dataName and rawFastq variables accordingly.
@@ -41,7 +48,7 @@ then
     rawFastq=$inputData
 
 else
-    echo "Error: given file: $inputData is not an sra file or a gzipped fastq file."
+    echo "Error: given file: $inputData is not an sra file, a fastq file, or a gzipped fastq file."
     exit 1
 
 fi
