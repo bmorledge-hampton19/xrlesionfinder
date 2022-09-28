@@ -59,7 +59,7 @@ echo "Working with $inputData"
 trimmedFastq="${dataName}_trimmed.fastq.gz"
 bowtieSAMOutput="$dataName.sam"
 BAMOutput="$dataName.bam.gz"
-finalBedOutput="$(dirname $(dirname $dataName))/$(basename $dataName).bed"
+finalBedOutput="$(dirname $dataName)/$(basename $dataName).bed"
 
 # Trim the data (Single End)
 if [[ $adaptorFile != "NONE" ]]
