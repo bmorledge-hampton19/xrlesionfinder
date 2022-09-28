@@ -2,7 +2,7 @@
 # determines which adapters are enriched in the reads.
 import os, gzip
 from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
-from benbiohelpers.FileSystemHandling.DirectoryHandling import checkDirs
+from benbiohelpers.FileSystemHandling.DirectoryHandling import checkDirs, getIsolatedParentDir
 from benbiohelpers.FileSystemHandling.FastaFileIterator import FastaFileIterator
 from benbiohelpers.FileSystemHandling.GetFileSubset import getFastqSubset
 from xrlesionfinder.ProjectManagement.UsefulFileSystemFunctions import getDataDirectory
@@ -18,12 +18,13 @@ def getFastqEntrySequence(fastqFile: TextIO):
     return sequence
 
 
-def findAdapters(fastqFilePaths: List[str], adapterFilePath, threshold = 0.1):
+def findAdapters(fastqFilePaths: List[str], adapterFilePath, threshold = 0.05, defaultToMax = True):
     """
     Given one or more fastq files and a fasta file of adapter sequences,
     determines which adapters are enriched in each file (using a subset of that file)
     and prints them to a new adapters file in the same directory as the fastq file.
-    Default threshold for adapter enrichment is 10%.
+    Default threshold for adapter enrichment is 5%. If no adapter meets this threshold, and the
+    defaultToMax parameter is true, the adapter with the highest enrichment is chosen.
     """
 
     # Get the fasta entries from the adapter file.
@@ -77,7 +78,16 @@ def findAdapters(fastqFilePaths: List[str], adapterFilePath, threshold = 0.1):
                     foundEnrichedAdapter = True
                     enrichedAdapterFile.write(fastaEntry.formatForWriting())
         
-        if not foundEnrichedAdapter: print("WARNING: No enriched adapters. Adapter file will be empty.")
+            if not foundEnrichedAdapter:
+                maxAdapter: FastaFileIterator.FastaEntry = max(adapterCounts, key = adapterCounts.get)
+                percentage = adapterCounts[maxAdapter]/totalSequences * 100
+                if defaultToMax:
+                    print("WARNING: No adapters meet enrichment threshold. "
+                        "Adapter with maximum enrichment will be written.")
+                    enrichedAdapterFile.write(maxAdapter.formatForWriting())
+                else:
+                    print("WARNING: No adapters meet enrichment threshold. Adapter file will be empty.")
+                print(f"Maximum enrichment was {percentage}% for {maxAdapter.sequenceName}")
 
     return enrichedAdapterFilePaths
 
@@ -90,7 +100,11 @@ def main():
                                         additionalFileEndings=[".fastq"])
         dialog.createFileSelector("Adapter file:", 1, ("Fasta File", ".fa"))
 
-    findAdapters(dialog.selections.getFilePathGroups()[0], dialog.selections.getIndividualFilePaths[0])
+    # Sanitize inputs
+    fastqFilePaths = [filePath for filePath in dialog.selections.getFilePathGroups()[0] if 
+                      getIsolatedParentDir(filePath) != ".tmp"]
+
+    findAdapters(fastqFilePaths, dialog.selections.getIndividualFilePaths()[0])
 
 
 if __name__ == "__main__": main()
