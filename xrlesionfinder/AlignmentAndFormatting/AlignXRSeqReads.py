@@ -1,6 +1,7 @@
 import os, subprocess, time
 from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
 from xrlesionfinder.ProjectManagement.UsefulFileSystemFunctions import getDataDirectory
+from xrlesionfinder.AlignmentAndFormatting.FindAdapters import findAdapters as findAdaptersFunc
 from typing import List
 
 
@@ -22,8 +23,8 @@ def writeMetadata(rawReadsFilePath, adaptorSeqeuncesFilePath, bowtie2IndexBasena
 
 
 # For each of the given reads files, run the accompyaning bash script to perform the alignment.
-def alignXRSeqReads(rawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath, 
-                    readCountsOutputFilePath = None, bowtie2BinaryPath = None, customBowtie2Arguments = ''):
+def alignXRSeqReads(rawReadsFilePaths, adapterSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath, 
+                    readCountsOutputFilePath = None, bowtie2BinaryPath = None, customBowtie2Arguments = '', findAdapters = False):
 
     readCounts = dict()
     scriptStartTime = time.time()
@@ -38,8 +39,12 @@ def alignXRSeqReads(rawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBas
         print("Processing file",os.path.basename(rawReadsFilePath))
         print('(',currentReadFileNum,'/',totalReadsFiles,')', sep = '') 
 
+        # If requested find adapters in the current fastq file based on the given list of adapters.
+        if findAdapters: thisAdapterSequencesFilePath = findAdaptersFunc([rawReadsFilePath], adapterSequencesFilePath)[0]
+        else: thisAdapterSequencesFilePath = adapterSequencesFilePath
+
         # Run the alignment script.
-        arguments = ["bash", alignmentBashScriptFilePath, rawReadsFilePath, adaptorSequencesFilePath, 
+        arguments = ["bash", alignmentBashScriptFilePath, rawReadsFilePath, thisAdapterSequencesFilePath, 
                      bowtie2IndexBasenamePath, customBowtie2Arguments]
         if bowtie2BinaryPath is not None: arguments.append(bowtie2BinaryPath)
         subprocess.run(arguments, check = True)
@@ -58,7 +63,7 @@ def alignXRSeqReads(rawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBas
         print(f"Total time spent aligning across all files: {time.time() - scriptStartTime} seconds")
 
         # Write the metadata.
-        writeMetadata(rawReadsFilePath, adaptorSequencesFilePath, bowtie2IndexBasenamePath, 
+        writeMetadata(rawReadsFilePath, thisAdapterSequencesFilePath, bowtie2IndexBasenamePath, 
                       bowtie2BinaryPath, customBowtie2Arguments)
 
     # Write the read counts if requested.
@@ -93,9 +98,11 @@ def main():
         dialog.createFileSelector("Bowtie2 Index File (Any):", 1, ("Bowtie2 Index File", ".bt2"))
 
         with dialog.createDynamicSelector(2, 0) as adaptorSequencesDS:
-            adaptorSequencesDS.initDropdownController("Use default adapters for trimming", ("Default", "Custom", "None"))
-            adaptorSequencesSelector = adaptorSequencesDS.initDisplay("Custom", selectionsID = "adaptorSequences")
-            adaptorSequencesSelector.createFileSelector("Custom Adaptor Sequences File:", 0, ("Fasta Files", ".fa"))
+            adaptorSequencesDS.initDropdownController("Use default adapters for trimming", ("Default", "Custom", "Find Adapters", "None"))
+            adaptorSequencesSelector = adaptorSequencesDS.initDisplay("Custom", selectionsID = "customAdapterSequences")
+            adaptorSequencesSelector.createFileSelector("Custom Adapters Sequences File:", 0, ("Fasta Files", ".fa"))
+            adaptorSequencesSelector = adaptorSequencesDS.initDisplay("Find Adapters", selectionsID = "potentialAdapterSequences")
+            adaptorSequencesSelector.createFileSelector("Potential Adapter Sequences File:", 0, ("Fasta Files", ".fa"))
 
         with dialog.createDynamicSelector(3, 0) as bowtie2BinaryDS:
             bowtie2BinaryDS.initCheckboxController("Choose alternative bowtie2 binary")
@@ -124,10 +131,14 @@ def main():
     bowtie2IndexBasenamePath = bowtie2IndexBasenamePath.rsplit('.', 2)[0]
     if bowtie2IndexBasenamePath.endswith(".rev"): bowtie2IndexBasenamePath = bowtie2IndexBasenamePath.rsplit('.', 1)[0]
 
+    findAdapters = False
     if adaptorSequencesDS.getControllerVar() == "Default":
         adaptorSequencesFilePath = os.path.join(os.path.dirname(__file__), "XR-seq_primers.fa")
     elif adaptorSequencesDS.getControllerVar() == "Custom":
-        adaptorSequencesFilePath = dialog.selections.getIndividualFilePaths("adaptorSequences")[0]
+        adaptorSequencesFilePath = dialog.selections.getIndividualFilePaths("customAdapterSequences")[0]
+    elif adaptorSequencesDS.getControllerVar() == "Find Adapters":
+        adaptorSequencesFilePath = dialog.selections.getIndividualFilePaths("potentialAdapterSequences")[0]
+        findAdapters = True
     else: adaptorSequencesFilePath = "NONE"
 
     if readCountsDS.getControllerVar():
@@ -150,7 +161,7 @@ def main():
         customBowtie2Arguments = dialog.selections.getTextEntries("customArgs")[0]
 
     alignXRSeqReads(filteredRawReadsFilePaths, adaptorSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath, 
-                    readCountsOutputFilePath, bowtie2BinaryPath, customBowtie2Arguments)
+                    readCountsOutputFilePath, bowtie2BinaryPath, customBowtie2Arguments, findAdapters)
 
 
 if __name__ == "__main__": main()
