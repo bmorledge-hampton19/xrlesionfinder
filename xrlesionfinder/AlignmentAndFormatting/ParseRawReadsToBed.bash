@@ -14,6 +14,7 @@ echo
 inputData=$1; shift
 adaptorFile=$1; shift
 bt2IndexBasename=$1; shift
+threads=$1; shift
 customBowtieArguments=$1; shift
 
 if [[ $# > 0 ]]
@@ -58,6 +59,7 @@ echo "Working with $inputData"
 # Create the names of all other intermediate and output files.
 trimmedFastq="${dataName}_trimmed.fastq.gz"
 bowtieSAMOutput="$dataName.sam"
+bowtieStatsOutput="${dataDirectory}/.tmp/bowtie2_stats.txt"
 BAMOutput="$dataName.bam.gz"
 finalBedOutput="$(dirname $dataName)/$(basename $dataName).bed"
 
@@ -65,7 +67,7 @@ finalBedOutput="$(dirname $dataName)/$(basename $dataName).bed"
 if [[ $adaptorFile != "NONE" ]]
 then
     echo "Trimming adaptors..."
-    java -jar $trimmomaticPath SE $rawFastq $trimmedFastq "ILLUMINACLIP:$adaptorFile:2:30:10"
+    java -jar $trimmomaticPath SE -threads $threads $rawFastq $trimmedFastq "ILLUMINACLIP:$adaptorFile:2:30:10"
 else
     echo "Skipping adaptor trimming."
     trimmedFastq=$rawFastq
@@ -75,18 +77,18 @@ fi
 echo "Aligning reads with bowtie2..."
 if [[ -z "$customBowtieArguments" ]]
 then
-    $bowtieBinary -x $bt2IndexBasename -U $trimmedFastq -S $bowtieSAMOutput
+    $bowtieBinary -x $bt2IndexBasename -U $trimmedFastq -S $bowtieSAMOutput -p $threads |& tail -6 | tee $bowtieStatsOutput
 else
-    $bowtieBinary -x $bt2IndexBasename -U $trimmedFastq -S $bowtieSAMOutput $customBowtieArguments
+    $bowtieBinary -x $bt2IndexBasename -U $trimmedFastq -S $bowtieSAMOutput -p $threads $customBowtieArguments |& tail -6 | tee $bowtieStatsOutput
 fi
 
 # Convert from sam to bam.
 echo "Converting from sam to bam..."
-samtools view -b -o $BAMOutput $bowtieSAMOutput
+samtools view -b --threads $((threads-1)) -o $BAMOutput $bowtieSAMOutput
 
 # Gzip the sam file.  (Can't find a way to have bowtie do this to the output by default...)
 echo "Gzipping sam file..."
-gzip -f $bowtieSAMOutput
+pigz -p $threads $bowtieSAMOutput
 
 # Convert to final bed output.
 echo "Converting to bed..."
