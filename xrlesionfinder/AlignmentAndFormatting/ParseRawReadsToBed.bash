@@ -7,54 +7,91 @@
 # Get trimmomatic's jar path.
 trimmomaticPath=$(dpkg -L trimmomatic | grep .jar$ | head -1)
 
+inputReads2=""
+
+while [[ $# > 0 ]]; do
+  case $1 in
+    -1|--read-file-1)
+      inputReads1="$2"
+      shift
+      shift
+      ;;
+    -2|--read-file-2)
+      inputReads2="$2"
+      shift
+      shift
+      ;;
+    -a|--adapterFile)
+      adapterFile="$2"
+      shift
+      shift
+      ;;
+    -i|--bt2-index)
+      bt2IndexBasename="$2"
+      shift
+      shift
+      ;;
+    -t|--threads)
+      threads="$2"
+      shift
+      shift
+      ;;
+    -c|--custom-bowtie2-arguments)
+      customBowtie2Arguments="$2"
+      shift
+      shift
+      ;;
+    -b|--bowtie2-binary)
+      bowtie2Binary="$2"
+      shift
+      shift
+      ;;
+    -*|--*)
+      echo "Unknown option: $1"
+      exit 1
+      ;;
+    *)
+      echo "Unexpected positional argument: $1"
+      shift
+      ;;
+  esac
+done
+
 # Get the main directory that data is being stored in.
-dataDirectory=${1%/*}
+dataDirectory=${inputReads1%/*}   
 
-echo
-inputData=$1; shift
-adaptorFile=$1; shift
-bt2IndexBasename=$1; shift
-threads=$1; shift
-customBowtieArguments=$1; shift
-
-if [[ $# > 0 ]]
+# If no custom bowtie2 binary was given, use the default.
+if [[ -z $bowtie2Binary ]]
 then
-    bowtieBinary=$1
-else
-    bowtieBinary="bowtie2"
-fi    
-
-# Determine if the input is sra, fastq, or gzipped fastq.
-if [[ $inputData == *\.sr ]]
-then
-    # If given an sra file, generate the rawFastq file from it.
-    echo "sra format given."
-    dataName=${inputData%.sr}
-    rawFastq="$dataName.sr.fastq.gz"
-    echo "Converting to fastq format..."
-    fastq-dump --gzip -O $dataDirectory $inputData
-
-elif [[ $inputData == *\.fastq ]]
-then
-    # If given a fastq file, set the dataName and rawFastq variables accordingly.
-    echo "fastq given."
-    dataName=${inputData%.fastq}
-    rawFastq=$inputData
-
-elif [[ $inputData == *\.fastq\.gz ]]
-then
-    # If given a gzipped fastq file, set the dataName and rawFastq variables accordingly.
-    echo "gzipped fastq given."
-    dataName=${inputData%.fastq.gz}
-    rawFastq=$inputData
-
-else
-    echo "Error: given file: $inputData is not an sra file, a fastq file, or a gzipped fastq file."
-    exit 1
-
+    bowtie2Binary="bowtie2"
 fi
 
-echo "Working with $inputData"
+# Determine whether the file is gzipped or not and set the dataName variable accordingly.
+if [[ $inputReads1 == *\.fastq ]]
+then
+    echo "fastq given."
+    dataName=${inputReads1%.fastq}
+elif [[ $inputReads1 == *\.fastq\.gz ]]
+then
+    echo "gzipped fastq given."
+    dataName=${inputReads1%.fastq.gz}
+else
+    echo "Error: given file: $inputReads1 is not a fastq file or a gzipped fastq file."
+    exit 1
+fi
+
+# Don't forget to trim the read identifier off of the data name if the data is paired-end.
+if [[ ! -z "$inputReads2" ]]
+then
+    dataName=${dataName%_R1}
+fi
+
+if [[ -z "$inputReads2" ]]
+then
+    echo "Working with $inputData"
+else
+    echo "Working with $inputReads1 and $inputReads2"
+fi
 
 # Create the names of all other intermediate and output files.
 trimmedFastq="${dataName}_trimmed.fastq.gz"
@@ -63,23 +100,57 @@ bowtieStatsOutput="${dataDirectory}/.tmp/bowtie2_stats.txt"
 BAMOutput="$dataName.bam.gz"
 finalBedOutput="$(dirname $dataName)/$(basename $dataName).bed"
 
-# Trim the data (Single End)
-if [[ $adaptorFile != "NONE" ]]
+if [[ ! -z "$inputReads2" ]]
 then
-    echo "Trimming adaptors..."
-    java -jar $trimmomaticPath SE -threads $threads $rawFastq $trimmedFastq "ILLUMINACLIP:$adaptorFile:2:30:10"
+    trimmedFastqP1="${dataName}_trimmed_1P.fastq.gz"
+    trimmedFastqP2="${dataName}_trimmed_2P.fastq.gz"
+fi
+
+# Trim the data
+if [[ $adapterFile != "NONE" ]]
+then
+    if [[ -z "$inputReads2" ]]
+    then
+        echo "Trimming adapters in single-end mode..."
+        java -jar $trimmomaticPath SE -threads $threads $inputReads1 $trimmedFastq "ILLUMINACLIP:$adapterFile:2:30:10"
+    else
+        echo "Trimming adapters in paired-end mode..."
+        java -jar $trimmomaticPath PE -threads $threads $inputReads1 $inputReads2 \
+        -baseout $trimmedFastq "ILLUMINACLIP:$adapterFile:2:30:10"
+    fi
+
 else
-    echo "Skipping adaptor trimming."
-    trimmedFastq=$rawFastq
+    echo "Skipping adapter trimming."
+    if [[ -z "$inputReads2" ]]
+    then
+        trimmedFastq=$inputReads1
+    else
+        trimmedFastqP1=$inputReads1
+        trimmedFastqP2=$inputReads2
+    fi
 fi
 
 # Align the reads to the genome.
 echo "Aligning reads with bowtie2..."
-if [[ -z "$customBowtieArguments" ]]
+if [[ -z "$inputReads2" ]]
 then
-    $bowtieBinary -x $bt2IndexBasename -U $trimmedFastq -S $bowtieSAMOutput -p $threads |& tail -6 | tee $bowtieStatsOutput
+    if [[ -z "$customBowtie2Arguments" ]]
+    then
+        $bowtie2Binary -x $bt2IndexBasename -U $trimmedFastq -S $bowtieSAMOutput -p $threads \
+        |& tail -6 | tee $bowtieStatsOutput
+    else
+        $bowtie2Binary -x $bt2IndexBasename -1 $trimmedFastqP1 -2 $trimmedFastqP2 -S $bowtieSAMOutput -p $threads $customBowtie2Arguments \
+        |& tail -6 | tee $bowtieStatsOutput
+    fi
 else
-    $bowtieBinary -x $bt2IndexBasename -U $trimmedFastq -S $bowtieSAMOutput -p $threads $customBowtieArguments |& tail -6 | tee $bowtieStatsOutput
+    if [[ -z "$customBowtie2Arguments" ]]
+    then
+        $bowtie2Binary -x $bt2IndexBasename -1 $trimmedFastqP1 -2 $trimmedFastqP2 -S $bowtieSAMOutput \
+        -p $threads |& tail -20 | tee $bowtieStatsOutput
+    else
+        $bowtie2Binary -x $bt2IndexBasename -1 $trimmedFastqP1 -2 $trimmedFastqP2 -S $bowtieSAMOutput \
+        -p $threads $customBowtie2Arguments |& tail -20 | tee $bowtieStatsOutput
+    fi
 fi
 
 # Convert from sam to bam.
@@ -88,7 +159,7 @@ samtools view -b --threads $((threads-1)) -o $BAMOutput $bowtieSAMOutput
 
 # Gzip the sam file.  (Can't find a way to have bowtie do this to the output by default...)
 echo "Gzipping sam file..."
-pigz -p $threads $bowtieSAMOutput
+pigz -f -p $threads $bowtieSAMOutput
 
 # Convert to final bed output.
 echo "Converting to bed..."
