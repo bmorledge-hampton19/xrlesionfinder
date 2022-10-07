@@ -18,13 +18,15 @@ def getFastqEntrySequence(fastqFile: TextIO):
     return sequence
 
 
-def findAdapters(fastqFilePaths: List[str], adapterFilePath, threshold = 0.05, defaultToMax = True):
+def findAdapters(fastqFilePaths: List[str], adapterFilePath, threshold = 0.05, defaultToMax = True, aggregateOutput = False):
     """
-    Given one or more fastq files and a fasta file of adapter sequences,
+    Given one or more fastq files (in a list) and a fasta file of adapter sequences,
     determines which adapters are enriched in each file (using a subset of that file)
     and prints them to a new adapters file in the same directory as the fastq file.
-    Default threshold for adapter enrichment is 5%. If no adapter meets this threshold, and the
+    - Default threshold for adapter enrichment is 5%. If no adapter meets this threshold, and the
     defaultToMax parameter is true, the adapter with the highest enrichment is chosen.
+    - If the aggregateOutput parameter is true, all enriched adapters are output to the same file, whose path is
+    determined by the the first fastq file path given. (Useful when preparing to trim paired-end data.)
     """
 
     # Get the fasta entries from the adapter file.
@@ -34,10 +36,15 @@ def findAdapters(fastqFilePaths: List[str], adapterFilePath, threshold = 0.05, d
             adapterFastaEntries.append(fastaEntry)
 
     # Loop through the given fastq files, looking for adapter enrichment in each.
+    enrichedAdapters = list()
+    enrichedAdapterFilePath = None
+    enrichedAdapterWriteMode = None
     enrichedAdapterFilePaths = list()
     for fastqFilePath in fastqFilePaths:
 
         print(f"\nSearching for enriched adapters in {os.path.basename(fastqFilePath)}...")
+
+        if not aggregateOutput: enrichedAdapters = list()
 
         # Determine what function will be used to handle file IO
         if fastqFilePath.endswith(".gz"): openFunction = gzip.open
@@ -67,16 +74,22 @@ def findAdapters(fastqFilePaths: List[str], adapterFilePath, threshold = 0.05, d
 
         # Write the enriched adapters to a new file.
         foundEnrichedAdapter = False
-        enrichedAdapterFilePath = os.path.join(os.path.dirname(fastqFilePath), "adapters.fa")
-        enrichedAdapterFilePaths.append(enrichedAdapterFilePath)
+        if enrichedAdapterFilePath is None or not aggregateOutput:
+            enrichedAdapterFilePath: str = os.path.join(os.path.dirname(fastqFilePath), "adapters.fa")
+            enrichedAdapterFilePaths.append(enrichedAdapterFilePath)
 
-        with open(enrichedAdapterFilePath, 'w') as enrichedAdapterFile:
+        if enrichedAdapterWriteMode is None: enrichedAdapterWriteMode = 'w'
+        elif aggregateOutput: enrichedAdapterWriteMode = 'a'
+
+        with open(enrichedAdapterFilePath, enrichedAdapterWriteMode) as enrichedAdapterFile:
             for fastaEntry in adapterCounts:
                 if adapterCounts[fastaEntry] >= enrichmentThreshold:
                     percentage = adapterCounts[fastaEntry] / totalSequences * 100
                     print(f"Adapter {fastaEntry.sequenceName} is enriched at {percentage}%")
                     foundEnrichedAdapter = True
-                    enrichedAdapterFile.write(fastaEntry.formatForWriting())
+                    if fastaEntry.sequence not in enrichedAdapters:
+                        enrichedAdapterFile.write(fastaEntry.formatForWriting())
+                        enrichedAdapters.append(fastaEntry.sequence)
         
             if not foundEnrichedAdapter:
                 maxAdapter: FastaFileIterator.FastaEntry = max(adapterCounts, key = adapterCounts.get)
@@ -84,7 +97,9 @@ def findAdapters(fastqFilePaths: List[str], adapterFilePath, threshold = 0.05, d
                 if defaultToMax:
                     print("WARNING: No adapters meet enrichment threshold. "
                         "Adapter with maximum enrichment will be written.")
-                    enrichedAdapterFile.write(maxAdapter.formatForWriting())
+                    if fastaEntry.sequence not in enrichedAdapters:
+                        enrichedAdapterFile.write(maxAdapter.formatForWriting())
+                        enrichedAdapters.append(maxAdapter.sequence)
                 else:
                     print("WARNING: No adapters meet enrichment threshold. Adapter file will be empty.")
                 print(f"Maximum enrichment was {percentage}% for {maxAdapter.sequenceName}")
