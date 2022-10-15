@@ -8,10 +8,12 @@ from typing import List
 
 
 # Write metadata on the parameters for the alignment, for future reference.
-def writeMetadata(rawReadsFilePath, adaptorSeqeuncesFilePath, bowtie2IndexBasenamePath, bowtie2StatsFilePath,
+def writeMetadata(rawReadsFilePath: str, pairedEndAlignment, adaptorSeqeuncesFilePath, bowtie2IndexBasenamePath,
                   bowtie2Version = None, customBowtie2Arguments = None):
 
-    metadataFilePath = os.path.join(os.path.dirname(rawReadsFilePath),".metadata")
+    if pairedEndAlignment: basename = os.path.basename(rawReadsFilePath).rsplit("_R1.fastq", 1)[0]
+    else: basename = os.path.basename(rawReadsFilePath).rsplit(".fastq", 1)[0]
+    metadataFilePath = os.path.join(os.path.dirname(rawReadsFilePath),f"{basename}_alignment.metadata")
     with open(metadataFilePath, 'w') as metadataFile:
 
         if bowtie2Version is None:
@@ -21,6 +23,7 @@ def writeMetadata(rawReadsFilePath, adaptorSeqeuncesFilePath, bowtie2IndexBasena
         metadataFile.write("Path_to_Adaptor_Sequences:\n" + adaptorSeqeuncesFilePath + "\n\n")
         metadataFile.write("Bowtie2_Version:\n" + bowtie2Version + "\n")
         metadataFile.write("Bowtie2_Stats:\n")
+        bowtie2StatsFilePath = os.path.join(os.path.dirname(rawReadsFilePath),".tmp",f"{basename}_bowtie2_stats.txt")
         with open(bowtie2StatsFilePath, 'r') as bowtie2StatsFile:
             atStats = False
             for line in bowtie2StatsFile:
@@ -37,11 +40,6 @@ def writeMetadata(rawReadsFilePath, adaptorSeqeuncesFilePath, bowtie2IndexBasena
 def alignXRSeqReads(rawReadsFilePaths: List[str], adapterSequencesFilePath, bowtie2IndexBasenamePath, alignmentBashScriptFilePath, 
                     readCountsOutputFilePath = None, bowtie2BinaryPath = None, threads = 1, customBowtie2Arguments = '',
                     findAdapters = False, pairedEndAlignment = False):
-
-    readCounts = dict()
-    scriptStartTime = time.time()
-    totalReadsFiles = len(rawReadsFilePaths)
-    currentReadFileNum = 0
 
     # If performing paired end alignment, find pairs for all the given raw reads files.
     if pairedEndAlignment:
@@ -78,6 +76,11 @@ def alignXRSeqReads(rawReadsFilePaths: List[str], adapterSequencesFilePath, bowt
 
         rawReadsFilePaths = read1FilePaths
 
+    readCounts = dict()
+    scriptStartTime = time.time()
+    currentReadFileNum = 0
+    totalReadsFiles = len(rawReadsFilePaths)
+
     for i, rawReadsFilePath in enumerate(rawReadsFilePaths):
 
         # Print information about the current file
@@ -100,7 +103,6 @@ def alignXRSeqReads(rawReadsFilePaths: List[str], adapterSequencesFilePath, bowt
         # Make sure the .tmp directory exists and create a path to the bowtie2 stats file.
         tempDir = os.path.join(os.path.dirname(rawReadsFilePath),".tmp")
         checkDirs(tempDir)
-        bowtie2StatsFilePath = os.path.join(tempDir, "bowtie2_stats.txt")
 
         # Run the alignment script.
         if pairedEndAlignment:
@@ -129,12 +131,15 @@ def alignXRSeqReads(rawReadsFilePaths: List[str], adapterSequencesFilePath, bowt
                 readCounts[os.path.basename(read2FilePaths[i])] = str( round(int(readCount)/4) )
 
         # Output information on time elapsed.
-        print(f"Time taken to align reads in this file: {time.time() - readsFileStartTime} seconds")
+        if pairedEndAlignment:
+            print(f"Time taken to align reads in this file pair: {time.time() - readsFileStartTime} seconds")
+        else:
+            print(f"Time taken to align reads in this file: {time.time() - readsFileStartTime} seconds")
         print(f"Total time spent aligning across all files: {time.time() - scriptStartTime} seconds")
 
         # Write the metadata.
-        writeMetadata(rawReadsFilePath, thisAdapterSequencesFilePath, bowtie2IndexBasenamePath, 
-                      bowtie2StatsFilePath, bowtie2BinaryPath, customBowtie2Arguments)
+        writeMetadata(rawReadsFilePath, pairedEndAlignment, thisAdapterSequencesFilePath, bowtie2IndexBasenamePath, 
+                      bowtie2BinaryPath, customBowtie2Arguments)
 
     # Write the read counts if requested.
     if readCountsOutputFilePath is not None:
@@ -147,8 +152,9 @@ def alignXRSeqReads(rawReadsFilePaths: List[str], adapterSequencesFilePath, bowt
 # Returns the filtered list of file paths. Does not alter the original list.
 def removeTrimmedAndTmp(unfilteredReadsFilePaths: List[str]):
     return [filePath for filePath in unfilteredReadsFilePaths if 
-            getIsolatedParentDir(filePath) != ".tmp" and not "trimmed.fastq" in filePath and
-            re.search("trimmed_..\.fastq", filePath) is None]
+            getIsolatedParentDir(filePath) != ".tmp"]
+            # and not "trimmed.fastq" in filePath and
+            # re.search("trimmed_..\.fastq", filePath) is None]
 
 
 def parseArgs(args):

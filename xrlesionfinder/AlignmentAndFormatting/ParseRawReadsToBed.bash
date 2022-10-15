@@ -57,8 +57,9 @@ while [[ $# > 0 ]]; do
   esac
 done
 
-# Get the main directory that data is being stored in.
-dataDirectory=${inputReads1%/*}   
+# Get the main directory and .tmp directories.
+dataDirectory=${inputReads1%/*}
+tmpDirectory="$dataDirectory/.tmp"
 
 # If no custom bowtie2 binary was given, use the default.
 if [[ -z $bowtie2Binary ]]
@@ -67,14 +68,15 @@ then
 fi
 
 # Determine whether the file is gzipped or not and set the dataName variable accordingly.
+dataName=${inputReads1##*/}
 if [[ $inputReads1 == *\.fastq ]]
 then
     echo "fastq given."
-    dataName=${inputReads1%.fastq}
+    dataName=${dataName%.fastq}
 elif [[ $inputReads1 == *\.fastq\.gz ]]
 then
     echo "gzipped fastq given."
-    dataName=${inputReads1%.fastq.gz}
+    dataName=${dataName%.fastq.gz}
 else
     echo "Error: given file: $inputReads1 is not a fastq file or a gzipped fastq file."
     exit 1
@@ -94,16 +96,16 @@ else
 fi
 
 # Create the names of all other intermediate and output files.
-trimmedFastq="${dataName}_trimmed.fastq.gz"
-bowtieSAMOutput="$dataName.sam"
-bowtieStatsOutput="${dataDirectory}/.tmp/bowtie2_stats.txt"
-BAMOutput="$dataName.bam.gz"
-finalBedOutput="$(dirname $dataName)/$(basename $dataName).bed"
+trimmedFastq="$tmpDirectory/${dataName}_trimmed.fastq.gz"
+bowtieSAMOutput="$tmpDirectory/$dataName.sam"
+bowtieStatsOutput="$tmpDirectory/${dataName}_bowtie2_stats.txt"
+BAMOutput="$tmpDirectory/$dataName.bam.gz"
+finalBedOutput="$dataDirectory/$dataName.bed"
 
 if [[ ! -z "$inputReads2" ]]
 then
-    trimmedFastqP1="${dataName}_trimmed_1P.fastq.gz"
-    trimmedFastqP2="${dataName}_trimmed_2P.fastq.gz"
+    trimmedFastqP1="$tmpDirectory/${dataName}_trimmed_1P.fastq.gz"
+    trimmedFastqP2="$tmpDirectory/${dataName}_trimmed_2P.fastq.gz"
 fi
 
 # Trim the data
@@ -139,8 +141,8 @@ then
         $bowtie2Binary -x $bt2IndexBasename -U $trimmedFastq -S $bowtieSAMOutput -p $threads \
         |& tail -6 | tee $bowtieStatsOutput
     else
-        $bowtie2Binary -x $bt2IndexBasename -1 $trimmedFastqP1 -2 $trimmedFastqP2 -S $bowtieSAMOutput -p $threads $customBowtie2Arguments \
-        |& tail -6 | tee $bowtieStatsOutput
+        $bowtie2Binary -x $bt2IndexBasename -1 $trimmedFastqP1 -2 $trimmedFastqP2 -S $bowtieSAMOutput -p $threads \
+        $customBowtie2Arguments |& tail -6 | tee $bowtieStatsOutput
     fi
 else
     if [[ -z "$customBowtie2Arguments" ]]
