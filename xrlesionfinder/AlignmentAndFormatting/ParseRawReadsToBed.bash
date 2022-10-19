@@ -90,7 +90,7 @@ fi
 
 if [[ -z "$inputReads2" ]]
 then
-    echo "Working with $inputData"
+    echo "Working with $inputReads1"
 else
     echo "Working with $inputReads1 and $inputReads2"
 fi
