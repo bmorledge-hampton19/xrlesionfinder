@@ -2,6 +2,7 @@
 from argparse import ArgumentParser
 from benbiohelpers.CustomErrors import *
 from xrlesionfinder.AlignmentAndFormatting import AlignXRSeqReads
+from xrlesionfinder.ProjectManagement.GenomeManager import GenomeManagerError
 import argparse, importlib.util, sys, traceback
 if importlib.util.find_spec("shtab") is not None: 
         import shtab
@@ -52,6 +53,8 @@ def main():
                  "you have not manually altered the file structure within the \"mutperiod_data\" directory.")
     except UserInputError as error:
         sys.exit("Error: " + str(error))
+    except GenomeManagerError as error:
+        sys.exit(f"Error: {error}\n Use the command \"xrlesionfinder addgenome\" to add/update genome locations.")
     except Exception:
         traceback.print_exc()
         print("\n\n\n")
