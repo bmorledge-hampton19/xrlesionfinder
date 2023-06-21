@@ -2,9 +2,6 @@
 import os
 from typing import Dict
 from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
-from benbiohelpers.FileSystemHandling.FastaFileIterator import FastaFileIterator
-from benbiohelpers.FileSystemHandling.DirectoryHandling import checkDirs, getIsolatedParentDir
-from benbiohelpers.FileSystemHandling.BedToFasta import bedToFasta
 from benbiohelpers.CustomErrors import checkIfPathExists, InvalidPathError, UserInputError
 from xrlesionfinder.ProjectManagement.UsefulFileSystemFunctions import getDataDirectory, getExternalDataDirectory
 
@@ -33,13 +30,28 @@ class MissingGenomeFileError(GenomeManagerError):
     def __str__(self):
         return f"Genome Fasta file for {self.genomeName} was not found at the expected location: {self.genomeFastaFilePath}"
 
+class MissingIndexFilesError(GenomeManagerError):
+    "An error class for when a given index path prefix no longer points to full index files."
+    def __init__(self, genomeName: str, indexPrefixPath: str):
+        self.genomeName = genomeName
+        self.indexPrefixPath = indexPrefixPath
+
+    def __str__(self):
+        return (f"Bowtie2 index path prefix {self.indexPrefixPath} for {self.genomeName} no longer points to full index files. "
+                f"(e.g. {self.indexPrefixPath}.1.bt2)")
+
 
 def getGenomeListFilePath():
     "Get the path to the file containing the list of known genomes for xrlesionfinder."
-    return os.path.join(getExternalDataDirectory,"genomes.txt")
+    return os.path.join(getExternalDataDirectory(),"genomes.txt")
 
 
-def getGenomes() -> Dict[str]:
+def getIndexListFilePath():
+    "Get the path to the file containing the list of bowtie2 index file path prefixes."
+    return os.path.join(getExternalDataDirectory(),"genomes_index_path_prefixes.txt")
+
+
+def getGenomes() -> Dict[str,str]:
     "Return a dictionary of genome fasta file paths with genome names as keys"
     genomes = dict()
     if os.path.exists(getGenomeListFilePath()):
@@ -48,6 +60,17 @@ def getGenomes() -> Dict[str]:
                 genomeName,genomeFilePath = line.strip().split(':')
                 genomes[genomeName] = genomeFilePath
     return genomes
+
+
+def getIndexPathPrefixes() -> Dict[str,str]:
+    "Return a dictionary of index path prefixes with genome names as keys"
+    indexPathPrefixes = dict()
+    if os.path.exists(getIndexListFilePath()):
+        with open(getIndexListFilePath(), 'r') as indexListFile:
+            for line in indexListFile:
+                genomeName,indexPathPrefix = line.strip().split(':')
+                indexPathPrefixes[genomeName] = indexPathPrefix
+    return indexPathPrefixes
 
 
 def getGenomeFastaFilePath(genomeName):
@@ -59,7 +82,16 @@ def getGenomeFastaFilePath(genomeName):
     else: raise MissingGenomeFileError(genomeName, genomeFastaFilePath)
 
 
-def addGenome(genomeFastaFilePath: str, alias = None):
+def getIndexPathPrefix(genomeName):
+    "Return the path prefix of the genome's bowtie2 index."
+    indexPathPrefixes = getIndexPathPrefixes()
+    if genomeName in indexPathPrefixes: indexPathPrefix = indexPathPrefixes[genomeName]
+    else: indexPathPrefix = getGenomeFastaFilePath(genomeName).rsplit('.',1)[0]
+    if os.path.exists(indexPathPrefix+".1.bt2"): return indexPathPrefix
+    else: raise MissingIndexFilesError(genomeName, indexPathPrefix)
+
+
+def addGenome(genomeFastaFilePath: str, alias = None, indexPath: str = None):
     """
     Add the given genome fasta file to xrlesionfinder's genome manager file.
     If no alias (the colloquial name for the genome) is given, it is generated from the fasta file's name.
@@ -88,6 +120,30 @@ def addGenome(genomeFastaFilePath: str, alias = None):
         for genomeName in sorted(genomes):
             genomeManagerFile.write(f"{genomeName}:{genomes[genomeName]}\n")
 
+    # Write the custom index path, if given.
+    if indexPath is not None:
+
+        # Make sure the given path appears to point to a real index.
+        if not (os.path.exists(indexPath) or os.path.exists(indexPath+".1.bt2")):
+            raise InvalidPathError(indexPath, "Given path does not exist and is not a valid prefix of existing index files.")
+
+        # If the full path was given, trim it down to the prefix.
+        if os.path.exists(indexPath):
+            indexPathPrefix = indexPath.rsplit('.', 2)[0]
+            if indexPathPrefix.endswith(".rev"): indexPathPrefix = indexPathPrefix.rsplit('.', 1)[0]
+
+        # Add the index and fasta file path to the dictionary of known genomes, overwriting an old entry if necessary.
+        print(f"Adding custom bowtie2 index path prefix: {indexPathPrefix}")
+        indexPathPrefixes = getIndexPathPrefixes()
+        if alias in indexPathPrefixes and indexPathPrefixes[alias] != indexPathPrefix:
+            print(f"NOTE: This action overwrites an entry which previously pointed to {indexPathPrefixes[alias]}")
+        indexPathPrefixes[alias] = indexPathPrefix
+
+        # Rewrite the genome manager file with the updated dictionary.
+        with open(getIndexListFilePath(), 'w') as indexListFile:
+            for genomeName in sorted(indexPathPrefixes):
+                indexListFile.write(f"{genomeName}:{indexPathPrefixes[genomeName]}\n")
+
 
 def main():
 
@@ -97,3 +153,19 @@ def main():
         with dialog.createDynamicSelector(1, 0, 2) as aliasDynSel:
             aliasDynSel.initCheckboxController("Give custom alias")
             aliasDynSel.initDisplay(1, "CustomAlias").createTextField("Custom Alias", 0, 0, defaultText="My_Genome")
+        with dialog.createDynamicSelector(2, 0, 2) as indexDynSel:
+            indexDynSel.initCheckboxController("Give custom bowtie2 index path")
+            indexDynSel.initDisplay(1, "CustomIndex").createFileSelector("Bowtie2 Index File (Any):", 1,
+                                                                         ("Bowtie2 Index File", ".bt2"))
+            
+
+    if aliasDynSel.getControllerVar(): alias = dialog.selections.getTextEntries("CustomAlias")[0]
+    else: alias = None
+
+    if indexDynSel.getControllerVar(): indexPath = dialog.selections.getIndividualFilePaths("CustomIndex")[0]
+    else: indexPath = None
+
+    addGenome(dialog.selections.getIndividualFilePaths()[0], alias, indexPath)
+
+
+if __name__ == "__main__": main()
