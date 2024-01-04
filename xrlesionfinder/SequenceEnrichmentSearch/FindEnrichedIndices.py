@@ -230,7 +230,7 @@ def findEnrichedIndices(bedFilePaths: List[str], genomeFastaFilePath, fastaFileP
 
 def main():
 
-    with TkinterDialog(workingDirectory = getDataDirectory()) as dialog:
+    with TkinterDialog(workingDirectory = getDataDirectory(), title = "Find Enriched Indices") as dialog:
         dialog.createMultipleFileSelector("Bed files of aligned data:", 0, "aligned_reads.bed", 
                                           ("Bed Files", ".bed"))
         dialog.createFileSelector("Genome fasta file (If bed files are provided)", 1,
