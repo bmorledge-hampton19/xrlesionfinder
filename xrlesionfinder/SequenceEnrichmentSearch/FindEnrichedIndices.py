@@ -233,8 +233,7 @@ def main():
     with TkinterDialog(workingDirectory = getDataDirectory(), title = "Find Enriched Indices") as dialog:
         dialog.createMultipleFileSelector("Bed files of aligned data:", 0, "aligned_reads.bed", 
                                           ("Bed Files", ".bed"))
-        dialog.createFileSelector("Genome fasta file (If bed files are provided)", 1,
-                                  ("Fasta File", ".fa"))
+        dialog.createGenomeSelector(1, 0)
         dialog.createMultipleFileSelector("Fasta files of aligned data:", 2, "aligned_reads.fa", 
                                           ("Fasta Files", ".fa"))
         dialog.createCheckbox("Count individual bases", 3, 0)
@@ -243,7 +242,7 @@ def main():
 
     # Get the input for the findEnrichedIndices function
     bedFilePaths = dialog.selections.getFilePathGroups()[0]
-    genomeFastaFilePath = dialog.selections.getIndividualFilePaths()[0]
+    genomeFastaFilePath = dialog.selections.getGenomes(returnType="fasta")[0]
     fastaFilePaths = dialog.selections.getFilePathGroups()[1]
 
     countIndividualBases = dialog.selections.getToggleStates()[0]
