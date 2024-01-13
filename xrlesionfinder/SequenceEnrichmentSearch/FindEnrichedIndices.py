@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Dict, List
 from benbiohelpers.TkWrappers.TkinterDialog import TkinterDialog
 from benbiohelpers.FileSystemHandling.FastaFileIterator import FastaFileIterator
-from benbiohelpers.FileSystemHandling.DirectoryHandling import checkDirs, getIsolatedParentDir
+from benbiohelpers.FileSystemHandling.DirectoryHandling import checkDirs, getIsolatedParentDir, getTempDir
 from benbiohelpers.FileSystemHandling.BedToFasta import bedToFasta
 from xrlesionfinder.ProjectManagement.UsefulFileSystemFunctions import getDataDirectory
 
@@ -151,10 +151,10 @@ def findEnrichedIndices(bedFilePaths: List[str], genomeFastaFilePath, fastaFileP
     for bedFilePath in bedFilePaths:
 
         print(f"Converting {os.path.basename(bedFilePath)}...")
-        intermediateDir = os.path.join(os.path.dirname(bedFilePath),"intermediate_files")
-        checkDirs(intermediateDir)
+        tmpDir = getTempDir(bedFilePath)
+        checkDirs(tmpDir)
         fastaBasename = os.path.basename(bedFilePath).rsplit('.',1)[0] + ".fa"
-        fastaOutputFilePath = os.path.join(intermediateDir,fastaBasename)
+        fastaOutputFilePath = os.path.join(tmpDir,fastaBasename)
         newFastaFilePaths.append(fastaOutputFilePath)
 
         bedToFasta(bedFilePath, genomeFastaFilePath, fastaOutputFilePath)
