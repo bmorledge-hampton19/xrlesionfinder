@@ -1,0 +1,2 @@
+The GenomeManager.py and UsefulFileSystemFunctions.py files need to be updated/removed to use the centralized functionality in benbiohelpers.
+(I.e., DataPipelineManagement.GenomeManager and DataPipelineManagement.DataDir)
