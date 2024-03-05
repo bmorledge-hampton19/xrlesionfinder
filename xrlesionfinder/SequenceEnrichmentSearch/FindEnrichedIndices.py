@@ -136,14 +136,25 @@ def getReadSequencesByLength(fastaFilePath, readSizeRange):
     return sequencesByLength
 
 
-# Given one or more fasta files and the features to count, find which indices are enriched from the end of the sequences, by length.
 def findEnrichedIndices(bedFilePaths: List[str], genomeFastaFilePath, fastaFilePaths: List[str],
-                        countIndividualBases, countDipys, getSecondPlace):
+                        countIndividualBases, countDipys, getSecondPlace,
+                        readSizeRange = range(16,36), fromStartValues = range(0,0), fromEndValues = range(1,16),
+                        outputBulkFrequencies = False):
+    """
+    Given one or more fasta files and the features to count, find which indices are enriched for each sequence length.
+    Right now, the search is restricted to specific read size ranges and positions relative to the sequence start and end:
+    - readSizeRange specifies the reads that will be analyzed.
+    - fromStartValues specifies the 1-based positions from the 5' end that will be analyzed.
+    - fromEndValues specifies the 1-based positions from the 3- end that will be analyzed.
+    - Default values reflect reasonable contraints for human XR-seq reads.
 
-    # Set some default parameters (I may change this to be more malleable at some point.)
-    readSizeRange = range(11,41)
-    fromStartValues = range(0) # These should be 1-based!  (0 can't be used because fromStart and fromEnd values are differentiated by +/-)
-    fromEndValues = range(1,11)
+    Unfortunately, the code is pretty brittle at the moment. (e.g., depending on the above values, it may try to look up string indices that do not exist.)
+    It is also very memory inefficient, due to reading all the valid fasta sequences into a dictionary at runtime... but it does the job!
+    If I ever need to scale up this kind of analysis though, it may be better to redesign the core algorithm...
+    """
+
+    # Create a list of all searched positions.
+    allSearchValues = list(fromStartValues) + ([-value for value in fromEndValues][::-1])
 
     # First, convert any bed file paths to fasta format.
     print("Converting bed files to fasta format...")
@@ -166,14 +177,24 @@ def findEnrichedIndices(bedFilePaths: List[str], genomeFastaFilePath, fastaFileP
         print()
         print("Working with:",os.path.basename(fastaFilePath))
 
-        # Generate a file path for the output file.
-        if getIsolatedParentDir(fastaFilePath) == "intermediate_files":
+        # Generate output file paths.
+        if getIsolatedParentDir(fastaFilePath) == ".tmp":
             outputDir = os.path.dirname(os.path.dirname(fastaFilePath))
         else: outputDir = os.path.dirname(fastaFilePath)
         outputBasename = os.path.basename(fastaFilePath).rsplit('.',1)[0] + "_enriched_indices.tsv"
         enrichedIndicesOutputFilePath = os.path.join(outputDir,outputBasename)
 
-        # Get a dictionary of sequences with lengths within readSizeRange
+        if outputBulkFrequencies:
+            if countIndividualBases:
+                individualFrequenciesOutputFilePath = os.path.join(outputDir, os.path.basename(fastaFilePath).rsplit('.',1)[0] + "_individual_nuc_frequencies.tsv")
+                individualFrequenciesOutputFile = open(individualFrequenciesOutputFilePath, 'w')
+                individualFrequenciesOutputFile.write('\t'.join(("Sequence_Length", "Position", "A_Frequency", "C_Frequency", "G_Frequency", "T_Frequency")) + '\n')
+            if countDipys:
+                dipyFrequenciesOutputFilePath = os.path.join(outputDir, os.path.basename(fastaFilePath).rsplit('.',1)[0] + "_dipy_frequencies.tsv")
+                dipyFrequenciesOutputFile = open(dipyFrequenciesOutputFilePath, 'w')
+                dipyFrequenciesOutputFile.write('\t'.join(("Sequence_Length", "Position", "CC_Frequency", "CT_Frequency", "TC_Frequency", "TT_Frequency")) + '\n')
+
+        # Get a dictionary of sequences with lengths within readSizeRange. (This is horribly memory inefficient...)
         print("Reading in sequences and binning by length...")
         sequencesByLength = getReadSequencesByLength(fastaFilePath, readSizeRange)
 
@@ -194,6 +215,17 @@ def findEnrichedIndices(bedFilePaths: List[str], genomeFastaFilePath, fastaFileP
                 for base in ('A','C','G','T'):
                     if getSecondPlace: enrichedIndicesInfoSP[sequenceLength][base] = individualBaseFrequencyTable.getMaxFrequencyAndPos(base, getSecondPlace)
                     enrichedIndicesInfo[sequenceLength][base] = individualBaseFrequencyTable.getMaxFrequencyAndPos(base)
+                
+                # If requested, write the individual frequencies.
+                if outputBulkFrequencies:
+                    for searchValue in allSearchValues:
+                        individualFrequenciesOutputFile.write('\t'.join((str(sequenceLength), str(searchValue),
+                                                                    str(individualBaseFrequencyTable.baseFrequencies['A'][searchValue]),
+                                                                    str(individualBaseFrequencyTable.baseFrequencies['C'][searchValue]),
+                                                                    str(individualBaseFrequencyTable.baseFrequencies['G'][searchValue]),
+                                                                    str(individualBaseFrequencyTable.baseFrequencies['T'][searchValue]),
+                        )) + '\n')
+                
             
             if countDipys:
                 dipyFrequencyTable = BaseFrequencyTable(fromStartValues, fromEndValues, BaseFrequencyTable.TrackedFeature.dipys)
@@ -201,6 +233,20 @@ def findEnrichedIndices(bedFilePaths: List[str], genomeFastaFilePath, fastaFileP
                 if getSecondPlace:
                     enrichedIndicesInfoSP[sequenceLength]["dipys"] = dipyFrequencyTable.getMaxFrequencyAndPos(BaseFrequencyTable.TrackedFeature.dipys, getSecondPlace)
                 enrichedIndicesInfo[sequenceLength]["dipys"] = dipyFrequencyTable.getMaxFrequencyAndPos(BaseFrequencyTable.TrackedFeature.dipys)
+
+                # If requested, write the individual counts.
+                if outputBulkFrequencies:
+                    for searchValue in allSearchValues:
+                        individualFrequenciesOutputFile.write('\t'.join((str(sequenceLength), str(searchValue),
+                                                                    str(individualBaseFrequencyTable.baseFrequencies['CC'][searchValue]),
+                                                                    str(individualBaseFrequencyTable.baseFrequencies['CT'][searchValue]),
+                                                                    str(individualBaseFrequencyTable.baseFrequencies['TC'][searchValue]),
+                                                                    str(individualBaseFrequencyTable.baseFrequencies['TT'][searchValue]),
+                        )) + '\n')
+
+        # Close bulk frequency ouptut file paths as necessary.
+        if outputBulkFrequencies and countIndividualBases: individualFrequenciesOutputFile.close()
+        if outputBulkFrequencies and countDipys: dipyFrequenciesOutputFile.close()
 
         # Now, write the results to the output file!
         print("Writing Results...")
@@ -239,6 +285,7 @@ def main():
         dialog.createCheckbox("Count individual bases", 3, 0)
         dialog.createCheckbox("Count dipys", 3, 1)
         dialog.createCheckbox("Record second-most enriched positions", 4, 0)
+        dialog.createCheckbox("Output bulk frequencies", 4, 1)
 
     # Get the input for the findEnrichedIndices function
     bedFilePaths = dialog.selections.getFilePathGroups()[0]
@@ -248,9 +295,11 @@ def main():
     countIndividualBases = dialog.selections.getToggleStates()[0]
     countDipys = dialog.selections.getToggleStates()[1]
     getSecondPlace = dialog.selections.getToggleStates()[2]
+    outputBulkFrequencies = dialog.selections.getToggleStates()[3]
 
     findEnrichedIndices(bedFilePaths, genomeFastaFilePath, fastaFilePaths,
-                        countIndividualBases, countDipys, getSecondPlace)
+                        countIndividualBases, countDipys, getSecondPlace,
+                        outputBulkFrequencies = outputBulkFrequencies)
 
 
 if __name__ == "__main__": main()
